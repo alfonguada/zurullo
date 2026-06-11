@@ -85,6 +85,17 @@ def download_png(code):
 
 def run():
     os.makedirs(FLAGS_DIR, exist_ok=True)
+
+    # Crear tablas si no existen y sembrar equipos
+    db.create_all()
+    from models import TournamentSettings
+    if not TournamentSettings.query.first():
+        db.session.add(TournamentSettings())
+        db.session.commit()
+    if Team.query.count() == 0:
+        from seed_teams import seed
+        seed()
+
     ensure_flag_img_column()
 
     # 1. Limpiar placeholders de ESPN
