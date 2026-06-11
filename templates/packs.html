@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Mis Sobres — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+
+  <div class="packs-page-header">
+    <h1 class="pixel-text glow-yellow" style="font-size:.75rem">🎁 MIS SOBRES</h1>
+    {% if packs %}
+    <span class="packs-count-badge">{{ packs|length }} pendiente{{ 's' if packs|length != 1 }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Enlace al álbum -->
+  <div style="margin-bottom:20px">
+    <a href="{{ url_for('collection') }}" style="color:var(--muted);font-size:.8rem;text-decoration:none">
+      ← Ver álbum completo
+    </a>
+  </div>
+
+  {% if not packs %}
+  <div class="packs-empty">
+    <div class="packs-empty-icon">📭</div>
+    <p style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:8px">No tienes sobres pendientes</p>
+    <p style="font-size:.8rem">Gana puntos para conseguir sobres:</p>
+    <ul style="margin-top:12px;text-align:left;display:inline-block;font-size:.78rem;color:var(--text2);line-height:2">
+      <li>Cada <strong>25 puntos</strong> → 1 sobre</li>
+      <li>Resultado <strong>exacto</strong> → 1 sobre extra</li>
+    </ul>
+  </div>
+  {% else %}
+  <div class="packs-grid">
+    {% for pack in packs %}
+    <div class="pack-card">
+      <div class="pack-icon">📦</div>
+      <div class="pack-label">SOBRE<br>ESTÁNDAR</div>
+      <div class="pack-date">{{ pack.created_at.strftime('%d/%m %H:%M') }}</div>
+      <form action="{{ url_for('open_pack', pack_id=pack.id) }}" method="POST" style="width:100%">
+        <button type="submit" class="pack-open-btn">⚡ ABRIR SOBRE</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

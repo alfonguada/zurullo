@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Álbum — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+
+  <!-- CABECERA -->
+  <div class="page-header" style="margin-bottom:12px">
+    <h1 class="pixel-text glow-yellow" style="font-size:.8rem">📦 ÁLBUM</h1>
+    <a href="{{ url_for('my_packs') }}" class="btn btn-sm btn-accent" style="position:relative">
+      🎁 SOBRES
+      {% if pending_packs > 0 %}
+      <span class="nav-badge">{{ pending_packs }}</span>
+      {% endif %}
+    </a>
+  </div>
+
+  <!-- STATS -->
+  <div class="collection-header">
+    <div class="collection-stats">
+      <span class="collection-total">{{ owned }}<span style="color:var(--muted);font-size:.9rem"> / {{ total }}</span></span>
+      <span class="collection-pct">cartas · {{ (owned / total * 100)|int if total else 0 }}% completado</span>
+    </div>
+    <div class="collection-bar">
+      <div class="collection-fill" style="width:{{ (owned / total * 100)|int if total else 0 }}%"></div>
+    </div>
+
+    <!-- Resumen por rareza -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+      {% for r, info in rarity_counts.items() %}
+      <div style="display:flex;align-items:center;gap:5px;font-size:.72rem">
+        <span style="
+          color:{% if r=='legendary' %}var(--accent){% elif r=='epic' %}var(--purple){% elif r=='rare' %}var(--blue){% else %}#7080b8{% endif %};
+          font-weight:900
+        ">
+          {% if r=='legendary' %}⭐{% elif r=='epic' %}🔥{% elif r=='rare' %}💠{% else %}⚽{% endif %}
+          {{ r|upper }}
+        </span>
+        <span style="color:var(--text2)">{{ info.owned }}/{{ info.total }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- FILTROS POR RAREZA -->
+  <div class="rarity-filters">
+    <a href="{{ url_for('collection') }}"
+       class="rarity-btn {% if rarity == 'all' %}active-all{% endif %}">
+      TODAS <span class="rarity-count">{{ total }}</span>
+    </a>
+    <a href="{{ url_for('collection', rarity='legendary') }}"
+       class="rarity-btn {% if rarity == 'legendary' %}active-legendary{% endif %}" style="border-color:var(--accent);color:var(--accent)">
+      ⭐ LEGEND <span class="rarity-count">{{ rarity_counts.legendary.owned }}/{{ rarity_counts.legendary.total }}</span>
+    </a>
+    <a href="{{ url_for('collection', rarity='epic') }}"
+       class="rarity-btn {% if rarity == 'epic' %}active-epic{% endif %}" style="border-color:var(--purple);color:var(--purple)">
+      🔥 ÉPICO <span class="rarity-count">{{ rarity_counts.epic.owned }}/{{ rarity_counts.epic.total }}</span>
+    </a>
+    <a href="{{ url_for('collection', rarity='rare') }}"
+       class="rarity-btn {% if rarity == 'rare' %}active-rare{% endif %}" style="border-color:var(--blue);color:var(--blue)">
+      💠 RARO <span class="rarity-count">{{ rarity_counts.rare.owned }}/{{ rarity_counts.rare.total }}</span>
+    </a>
+    <a href="{{ url_for('collection', rarity='common') }}"
+       class="rarity-btn {% if rarity == 'common' %}active-common{% endif %}" style="border-color:#7080b8;color:#7080b8">
+      ⚽ COMÚN <span class="rarity-count">{{ rarity_counts.common.owned }}/{{ rarity_counts.common.total }}</span>
+    </a>
+  </div>
+
+  <!-- GRID DE CROMOS -->
+  {% if not players %}
+  <div style="text-align:center;padding:40px 20px;color:var(--muted)">
+    <div style="font-size:3rem;margin-bottom:12px">🃏</div>
+    <p>Aún no hay cromos en el álbum.</p>
+    <p style="font-size:.8rem;margin-top:8px">Abre un sobre para empezar.</p>
+  </div>
+  {% else %}
+  <div class="cards-grid">
+    {% for player in players %}
+    {% set uc = owned_map.get(player.id) %}
+    <div class="card-item card-{{ player.rarity }} {% if not uc %}card-missing{% endif %}"
+         {% if uc %}title="{{ player.name }}{% if player.team %} · {{ player.team.name }}{% endif %} · {{ player.position }}"{% endif %}>
+
+      <!-- rarity pip -->
+      <span class="card-rarity-pip">
+        {%- if player.rarity == 'legendary' %}L{% elif player.rarity == 'epic' %}E{% elif player.rarity == 'rare' %}R{% else %}C{% endif -%}
+      </span>
+
+      <!-- duplicate count -->
+      {% if uc and uc.duplicate_count > 0 %}
+      <span class="card-dup">×{{ uc.duplicate_count + 1 }}</span>
+      {% endif %}
+
+      <!-- icon -->
+      <div class="card-icon">{{ player.icon if uc else '?' }}</div>
+
+      <!-- name -->
+      <div class="card-name {% if not uc %}card-unkn{% endif %}">
+        {{ player.name if uc else '???' }}
+      </div>
+
+      <!-- team & position (only if owned) -->
+      {% if uc %}
+      {% if player.card_type == 'special' %}
+      <div class="card-sub">ESPECIAL</div>
+      {% else %}
+      <div class="card-sub">
+        {% if player.team %}{{ player.team.name[:10] }}{% endif %}
+      </div>
+      <div class="card-pos">{{ player.position }}</div>
+      {% endif %}
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

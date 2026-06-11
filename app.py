@@ -7,7 +7,7 @@ from collections import defaultdict
 import os
 
 import random
-from models import db, User, Team, Match, Prediction, BonusPrediction, ExtraBonusPrediction, WorstTeamAssignment, TournamentSettings
+from models import db, User, Team, Match, Prediction, BonusPrediction, ExtraBonusPrediction, WorstTeamAssignment, TournamentSettings, Player, UserCard, UserPack
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zurullo-wc-2026-secret')
@@ -69,6 +69,16 @@ def admin_required(f):
     return decorated
 
 
+# ─── CONTEXT PROCESSOR ────────────────────────────────────────────────────────
+
+@app.context_processor
+def inject_pack_count():
+    if current_user.is_authenticated:
+        count = UserPack.query.filter_by(user_id=current_user.id, opened=False).count()
+        return {'pending_packs': count}
+    return {'pending_packs': 0}
+
+
 # ─── SCORING LOGIC ────────────────────────────────────────────────────────────
 
 def calc_points(p1, p2, r1, r2, double=False):
@@ -91,6 +101,8 @@ def recalc_match(match):
         pred.points_earned = calc_points(pred.goals1, pred.goals2,
                                          match.goals1, match.goals2,
                                          match.any_double)
+        if pred.points_earned in (3, 6):
+            _grant_pack_no_commit(pred.user, 'standard', source=f'exact_{pred.id}')
 
 
 # ─── HELPERS: STREAKS & ACHIEVEMENTS ─────────────────────────────────────────
@@ -232,6 +244,55 @@ def recalc_worst_teams():
                 ga += m.goals1
         assignment.points_earned = gf + (ga // 3)
     db.session.commit()
+
+
+# ─── PACK HELPERS ─────────────────────────────────────────────────────────────
+
+_RARITY_WEIGHTS = {'common': 70, 'rare': 22, 'epic': 7, 'legendary': 1}
+
+
+def _grant_pack_no_commit(user, pack_type='standard', source=''):
+    """Añade un sobre a la sesión sin hacer commit. Idempotente por source."""
+    if source and UserPack.query.filter_by(user_id=user.id, source=source).first():
+        return None
+    pack = UserPack(user_id=user.id, pack_type=pack_type, source=source)
+    db.session.add(pack)
+    return pack
+
+
+def grant_pack(user, pack_type='standard', source=''):
+    """Entrega un sobre y hace commit inmediato."""
+    pack = _grant_pack_no_commit(user, pack_type, source)
+    if pack:
+        db.session.commit()
+    return pack
+
+
+def grant_milestone_packs(user):
+    """Entrega sobres por cada hito de 25 puntos aún no entregado."""
+    earned = user.total_points // 25
+    existing = UserPack.query.filter(
+        UserPack.user_id == user.id,
+        UserPack.source.like('milestone_%')
+    ).count()
+    for i in range(existing, earned):
+        _grant_pack_no_commit(user, 'standard', source=f'milestone_{i + 1}')
+
+
+def draw_cards(n=5):
+    """Extrae n cartas únicas del pool con probabilidades ponderadas por rareza."""
+    all_players = Player.query.all()
+    if not all_players:
+        return []
+    weights = [_RARITY_WEIGHTS.get(p.rarity, 1) for p in all_players]
+    drawn, drawn_ids, attempts = [], set(), 0
+    while len(drawn) < n and len(drawn) < len(all_players) and attempts < 300:
+        attempts += 1
+        card = random.choices(all_players, weights=weights, k=1)[0]
+        if card.id not in drawn_ids:
+            drawn_ids.add(card.id)
+            drawn.append(card)
+    return drawn
 
 
 # ─── PUBLIC ROUTES ────────────────────────────────────────────────────────────
@@ -571,6 +632,9 @@ def api_sync():
         if total_updated:
             db.session.commit()
             recalc_worst_teams()
+            for u in User.query.all():
+                grant_milestone_packs(u)
+            db.session.commit()
 
         return jsonify({'ok': True, 'updated': total_updated,
                         'ts': now.strftime('%Y-%m-%d %H:%M UTC')})
@@ -738,6 +802,9 @@ def admin_results():
             recalc_match(match)
             db.session.commit()
             recalc_worst_teams()
+            for u in User.query.all():
+                grant_milestone_packs(u)
+            db.session.commit()
             flash(f'Resultado guardado: {match.team1.name} {match.goals1}-{match.goals2} {match.team2.name}', 'success')
         except Exception as e:
             flash(f'Error: {e}', 'error')
@@ -877,6 +944,93 @@ def admin_teams():
         return redirect(url_for('admin_teams'))
     teams = Team.query.order_by(Team.group_letter.nullslast(), Team.name).all()
     return render_template('admin/teams.html', teams=teams)
+
+
+# ─── COLECCIÓN DE CROMOS ──────────────────────────────────────────────────────
+
+@app.route('/collection')
+@login_required
+def collection():
+    if not current_user.onboarding_done:
+        return redirect(url_for('onboarding'))
+    from players_data import seed_players
+    seed_players(db, Player, Team)
+
+    rarity = request.args.get('rarity', 'all')
+
+    all_players = Player.query.all()
+    owned_map = {uc.player_id: uc for uc in UserCard.query.filter_by(user_id=current_user.id).all()}
+    owned_ids = set(owned_map.keys())
+
+    rarity_rank = {'legendary': 0, 'epic': 1, 'rare': 2, 'common': 3}
+    all_players.sort(key=lambda p: (rarity_rank.get(p.rarity, 4), 0 if p.id in owned_ids else 1, p.name))
+
+    display = all_players if rarity == 'all' else [p for p in all_players if p.rarity == rarity]
+
+    total = len(all_players)
+    owned = len(owned_map)
+
+    rarity_counts = {}
+    for r in ('legendary', 'epic', 'rare', 'common'):
+        total_r = sum(1 for p in all_players if p.rarity == r)
+        owned_r = sum(1 for p in all_players if p.rarity == r and p.id in owned_ids)
+        rarity_counts[r] = {'total': total_r, 'owned': owned_r}
+
+    return render_template('collection.html',
+                           players=display, owned_map=owned_map,
+                           rarity=rarity, total=total, owned=owned,
+                           rarity_counts=rarity_counts)
+
+
+@app.route('/my-packs')
+@login_required
+def my_packs():
+    if not current_user.onboarding_done:
+        return redirect(url_for('onboarding'))
+    packs = UserPack.query.filter_by(user_id=current_user.id, opened=False)\
+        .order_by(UserPack.created_at.desc()).all()
+    return render_template('packs.html', packs=packs)
+
+
+@app.route('/open-pack/<int:pack_id>', methods=['POST'])
+@login_required
+def open_pack(pack_id):
+    from players_data import seed_players
+    seed_players(db, Player, Team)
+
+    pack = UserPack.query.get_or_404(pack_id)
+    if pack.user_id != current_user.id:
+        flash('Sobre no encontrado.', 'error')
+        return redirect(url_for('my_packs'))
+    if pack.opened:
+        flash('Este sobre ya fue abierto.', 'error')
+        return redirect(url_for('my_packs'))
+
+    cards = draw_cards(5)
+    result = []
+    for player in cards:
+        uc = UserCard.query.filter_by(user_id=current_user.id, player_id=player.id).first()
+        is_new = uc is None
+        if uc:
+            uc.duplicate_count += 1
+        else:
+            uc = UserCard(user_id=current_user.id, player_id=player.id)
+            db.session.add(uc)
+        result.append({
+            'id': player.id,
+            'name': player.name,
+            'rarity': player.rarity,
+            'icon': player.icon,
+            'position': player.position,
+            'card_type': player.card_type,
+            'team': player.team.name if player.team else '',
+            'is_new': is_new,
+        })
+
+    pack.opened = True
+    pack.opened_at = datetime.utcnow()
+    db.session.commit()
+    return render_template('pack_open.html', cards=result, pack=pack)
 
 
 if __name__ == '__main__':

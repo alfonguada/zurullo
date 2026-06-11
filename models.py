@@ -23,6 +23,8 @@ class User(UserMixin, db.Model):
     bonus        = db.relationship('BonusPrediction', back_populates='user', uselist=False)
     extra_bonus  = db.relationship('ExtraBonusPrediction', back_populates='user', uselist=False)
     worst_team   = db.relationship('WorstTeamAssignment', back_populates='user', uselist=False)
+    cards        = db.relationship('UserCard', back_populates='user', lazy='dynamic')
+    packs        = db.relationship('UserPack', back_populates='user', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -199,3 +201,44 @@ class TournamentSettings(db.Model):
     most_goals_team  = db.relationship('Team', foreign_keys=[most_goals_id])
     most_cards_team  = db.relationship('Team', foreign_keys=[most_cards_id])
     dark_horse_team  = db.relationship('Team', foreign_keys=[dark_horse_id])
+
+
+class Player(db.Model):
+    __tablename__ = 'players'
+    id        = db.Column(db.Integer, primary_key=True)
+    name      = db.Column(db.String(100), nullable=False)
+    team_id   = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    position  = db.Column(db.String(20), default='')
+    rarity    = db.Column(db.String(20), nullable=False)   # common · rare · epic · legendary
+    icon      = db.Column(db.String(10), default='⚽')
+    card_type = db.Column(db.String(20), default='player') # player · special
+    image     = db.Column(db.String(100), default='')
+
+    team = db.relationship('Team', foreign_keys=[team_id])
+
+
+class UserCard(db.Model):
+    __tablename__ = 'user_cards'
+    id              = db.Column(db.Integer, primary_key=True)
+    user_id         = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    player_id       = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    obtained_at     = db.Column(db.DateTime, default=datetime.utcnow)
+    duplicate_count = db.Column(db.Integer, default=0)
+
+    user   = db.relationship('User', back_populates='cards')
+    player = db.relationship('Player')
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'player_id'),)
+
+
+class UserPack(db.Model):
+    __tablename__ = 'user_packs'
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    opened     = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    opened_at  = db.Column(db.DateTime)
+    pack_type  = db.Column(db.String(20), default='standard')
+    source     = db.Column(db.String(100), default='')  # previene dobles entregas
+
+    user = db.relationship('User', back_populates='packs')

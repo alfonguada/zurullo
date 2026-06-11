@@ -10,7 +10,7 @@ if APP_DIR not in sys.path:
 os.chdir(APP_DIR)
 
 from app import app as application
-from models import db, TournamentSettings
+from models import db, TournamentSettings, Player, UserCard, UserPack
 
 
 def run_migrations():
@@ -22,6 +22,7 @@ def run_migrations():
         "ALTER TABLE tournament_settings ADD COLUMN most_cards_id INTEGER",
         "ALTER TABLE tournament_settings ADD COLUMN dark_horse_id INTEGER",
         "ALTER TABLE matches ADD COLUMN is_daily_bonus BOOLEAN DEFAULT 0",
+        # Nuevas tablas: players, user_cards, user_packs — creadas por db.create_all()
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
