@@ -73,13 +73,15 @@ def admin_required(f):
 
 @app.context_processor
 def inject_pack_count():
+    ctx = {'pending_packs': 0, 'user_coins': 0, 'PACK_TYPES': PACK_TYPES}
     if current_user.is_authenticated:
         try:
-            count = UserPack.query.filter_by(user_id=current_user.id, opened=False).count()
-            return {'pending_packs': count}
+            ctx['pending_packs'] = UserPack.query.filter_by(
+                user_id=current_user.id, opened=False).count()
+            ctx['user_coins'] = current_user.coins
         except Exception:
             pass
-    return {'pending_packs': 0}
+    return ctx
 
 
 # ─── SCORING LOGIC ────────────────────────────────────────────────────────────
@@ -249,9 +251,35 @@ def recalc_worst_teams():
     db.session.commit()
 
 
+# ─── PACK CONFIGURATION ───────────────────────────────────────────────────────
+
+PACK_TYPES = {
+    'standard': {
+        'name': 'Estándar',   'icon': '📦', 'cost': 25,  'cards': 5,
+        'color': '#7090c8',
+        'desc': '5 cartas · probabilidades base',
+        'weights': {'common': 65, 'rare': 25, 'epic': 8,  'legendary': 2},
+        'guaranteed': None,
+    },
+    'premium': {
+        'name': 'Premium',    'icon': '🎁', 'cost': 50,  'cards': 7,
+        'color': '#00b4ff',
+        'desc': '7 cartas · al menos 1 rara garantizada',
+        'weights': {'common': 45, 'rare': 35, 'epic': 16, 'legendary': 4},
+        'guaranteed': 'rare',
+    },
+    'elite': {
+        'name': 'Élite',      'icon': '👑', 'cost': 100, 'cards': 10,
+        'color': '#ffaa00',
+        'desc': '10 cartas · épica garantizada',
+        'weights': {'common': 25, 'rare': 35, 'epic': 28, 'legendary': 12},
+        'guaranteed': 'epic',
+    },
+}
+
 # ─── PACK HELPERS ─────────────────────────────────────────────────────────────
 
-_RARITY_WEIGHTS = {'common': 70, 'rare': 22, 'epic': 7, 'legendary': 1}
+_RARITY_WEIGHTS = PACK_TYPES['standard']['weights']
 
 
 def _grant_pack_no_commit(user, pack_type='standard', source=''):
@@ -282,12 +310,14 @@ def grant_milestone_packs(user):
         _grant_pack_no_commit(user, 'standard', source=f'milestone_{i + 1}')
 
 
-def draw_cards(n=5):
-    """Extrae n cartas únicas del pool con probabilidades ponderadas por rareza."""
+def draw_cards(n=5, rarity_weights=None, guaranteed=None):
+    """Extrae n cartas únicas con pesos de rareza opcionales y garantía mínima."""
+    if rarity_weights is None:
+        rarity_weights = _RARITY_WEIGHTS
     all_players = Player.query.all()
     if not all_players:
         return []
-    weights = [_RARITY_WEIGHTS.get(p.rarity, 1) for p in all_players]
+    weights = [rarity_weights.get(p.rarity, 1) for p in all_players]
     drawn, drawn_ids, attempts = [], set(), 0
     while len(drawn) < n and len(drawn) < len(all_players) and attempts < 300:
         attempts += 1
@@ -295,7 +325,35 @@ def draw_cards(n=5):
         if card.id not in drawn_ids:
             drawn_ids.add(card.id)
             drawn.append(card)
+
+    if guaranteed and drawn:
+        _rarity_rank = {'legendary': 0, 'epic': 1, 'rare': 2, 'common': 3}
+        g_rank = _rarity_rank.get(guaranteed, 3)
+        has_guarantee = any(_rarity_rank.get(c.rarity, 3) <= g_rank for c in drawn)
+        if not has_guarantee:
+            drawn_set = {c.id for c in drawn}
+            eligible = [p for p in all_players
+                        if _rarity_rank.get(p.rarity, 3) <= g_rank and p.id not in drawn_set]
+            if eligible:
+                worst_idx = max(range(len(drawn)),
+                                key=lambda i: _rarity_rank.get(drawn[i].rarity, 3))
+                drawn[worst_idx] = random.choice(eligible)
     return drawn
+
+
+def grant_daily_packs():
+    """Entrega 2 sobres estándar gratuitos a cada usuario una vez por día."""
+    today = datetime.utcnow().date().isoformat()
+    source = f'daily_{today}'
+    users = User.query.all()
+    granted = 0
+    for user in users:
+        for n in range(2):
+            if _grant_pack_no_commit(user, 'standard', source=f'{source}_u{user.id}_n{n}'):
+                granted += 1
+    if granted:
+        db.session.commit()
+    return granted
 
 
 # ─── PUBLIC ROUTES ────────────────────────────────────────────────────────────
@@ -949,6 +1007,38 @@ def admin_teams():
     return render_template('admin/teams.html', teams=teams)
 
 
+# ─── TIENDA DE SOBRES ─────────────────────────────────────────────────────────
+
+@app.route('/buy-pack', methods=['POST'])
+@login_required
+def buy_pack():
+    pack_type = request.form.get('pack_type', 'standard')
+    cfg = PACK_TYPES.get(pack_type)
+    if not cfg:
+        flash('Tipo de sobre no válido.', 'error')
+        return redirect(url_for('my_packs'))
+    cost = cfg['cost']
+    if current_user.coins < cost:
+        flash(f'No tienes monedas suficientes. Necesitas {cost}🪙 y tienes {current_user.coins}🪙.', 'error')
+        return redirect(url_for('my_packs'))
+    current_user.coins_spent = (current_user.coins_spent or 0) + cost
+    pack = UserPack(user_id=current_user.id, pack_type=pack_type)
+    db.session.add(pack)
+    db.session.commit()
+    flash(f'{cfg["icon"]} ¡Sobre {cfg["name"]} comprado!', 'success')
+    return redirect(url_for('my_packs'))
+
+
+@app.route('/admin/daily-packs', methods=['POST'])
+@login_required
+@admin_required
+def admin_daily_packs():
+    """Entrega sobres diarios gratuitos a todos los usuarios."""
+    granted = grant_daily_packs()
+    flash(f'✅ {granted} sobres diarios repartidos.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
 # ─── COLECCIÓN DE CROMOS ──────────────────────────────────────────────────────
 
 @app.route('/collection')
@@ -1009,7 +1099,8 @@ def open_pack(pack_id):
         flash('Este sobre ya fue abierto.', 'error')
         return redirect(url_for('my_packs'))
 
-    cards = draw_cards(5)
+    cfg = PACK_TYPES.get(pack.pack_type) or PACK_TYPES['standard']
+    cards = draw_cards(cfg['cards'], rarity_weights=cfg['weights'], guaranteed=cfg.get('guaranteed'))
     result = []
     for player in cards:
         uc = UserCard.query.filter_by(user_id=current_user.id, player_id=player.id).first()

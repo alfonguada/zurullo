@@ -61,7 +61,9 @@
   <div class="reveal-hint" id="reveal-hint">👆 Toca la carta para revelar</div>
   <div class="reveal-actions">
     <button class="reveal-next-btn" id="next-btn">SIGUIENTE →</button>
-    <a href="{{ url_for('my_packs') }}" class="reveal-done-btn" id="done-btn">VER MIS SOBRES</a>
+    <a href="{{ url_for('my_packs') }}" class="reveal-done-btn" id="done-btn">
+      {% if pending_packs > 1 %}⚡ ABRIR SIGUIENTE ({{ pending_packs - 1 }} más){% else %}VER MIS SOBRES{% endif %}
+    </a>
   </div>
 
   <!-- Mini-strip de las 5 cartas -->

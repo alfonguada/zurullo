@@ -1,41 +1,86 @@
 {% extends 'base.html' %}
-{% block title %}Mis Sobres — Zurullo WC{% endblock %}
+{% block title %}Sobres — Zurullo WC{% endblock %}
 {% block content %}
 <div class="page-container">
 
-  <div class="packs-page-header">
-    <h1 class="pixel-text glow-yellow" style="font-size:.75rem">🎁 MIS SOBRES</h1>
-    {% if packs %}
-    <span class="packs-count-badge">{{ packs|length }} pendiente{{ 's' if packs|length != 1 }}</span>
-    {% endif %}
+  <!-- CABECERA + monedas -->
+  <div class="page-header" style="margin-bottom:16px">
+    <h1 class="pixel-text glow-yellow" style="font-size:.75rem">🎁 SOBRES</h1>
+    <a href="{{ url_for('collection') }}" style="color:var(--muted);font-size:.78rem;text-decoration:none">← Álbum</a>
   </div>
 
-  <!-- Enlace al álbum -->
-  <div style="margin-bottom:20px">
-    <a href="{{ url_for('collection') }}" style="color:var(--muted);font-size:.8rem;text-decoration:none">
-      ← Ver álbum completo
-    </a>
+  <!-- BALANCE DE MONEDAS -->
+  <div style="background:linear-gradient(135deg,#1a1200,#2d2000);border:2px solid var(--accent);border-radius:var(--radius);padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
+    <div style="font-size:2.2rem;line-height:1">🪙</div>
+    <div style="flex:1">
+      <div style="font-family:'Press Start 2P',monospace;font-size:.65rem;color:var(--accent)">MONEDAS</div>
+      <div style="font-size:1.9rem;font-weight:900;color:#fff;line-height:1.2">{{ user_coins }}</div>
+    </div>
+    <div style="text-align:right;font-size:.7rem;color:var(--muted);line-height:1.8">
+      <div>{{ current_user.total_points }} pts ranking</div>
+      <div>{{ current_user.coins_spent or 0 }} gastadas</div>
+    </div>
+  </div>
+  <div style="font-size:.72rem;color:var(--muted);margin-bottom:20px;margin-top:-12px">
+    💡 Las monedas se ganan igual que los puntos del ranking pero son independientes — gastarlas no te baja en la clasificación.
+  </div>
+
+  <!-- TIENDA -->
+  <h2 class="pixel-text" style="font-size:.6rem;color:var(--text2);margin-bottom:14px">🛒 TIENDA</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:28px">
+    {% for type_id, cfg in PACK_TYPES.items() %}
+    {% set can_buy = user_coins >= cfg.cost %}
+    <div style="background:var(--surface);border:2px solid {{ cfg.color }};border-radius:var(--radius);padding:18px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;
+                {% if not can_buy %}opacity:.55{% endif %}">
+      <div style="font-size:2.8rem;line-height:1">{{ cfg.icon }}</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:.55rem;color:{{ cfg.color }};line-height:1.8">
+        SOBRE<br>{{ cfg.name|upper }}
+      </div>
+      <div style="font-size:.7rem;color:var(--muted);min-height:2.4em">{{ cfg.desc }}</div>
+      <div style="font-size:1.1rem;font-weight:900;color:var(--accent)">{{ cfg.cost }} 🪙</div>
+      <form action="{{ url_for('buy_pack') }}" method="POST" style="width:100%">
+        <input type="hidden" name="pack_type" value="{{ type_id }}">
+        <button type="submit"
+                {% if not can_buy %}disabled title="Monedas insuficientes"{% endif %}
+                style="width:100%;padding:10px 0;background:{% if can_buy %}{{ cfg.color }}{% else %}var(--border){% endif %};color:{% if can_buy %}#fff{% else %}var(--muted){% endif %};border:none;border-radius:var(--radius-sm);font-size:.8rem;font-weight:800;cursor:{% if can_buy %}pointer{% else %}not-allowed{% endif %}">
+          {% if can_buy %}COMPRAR{% else %}🔒 FALTAN {{ cfg.cost - user_coins }}🪙{% endif %}
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- SOBRES PENDIENTES -->
+  <div class="packs-page-header">
+    <h2 class="pixel-text" style="font-size:.6rem;color:var(--text2)">📦 PENDIENTES</h2>
+    {% if packs %}
+    <span class="packs-count-badge">{{ packs|length }}</span>
+    {% endif %}
   </div>
 
   {% if not packs %}
   <div class="packs-empty">
     <div class="packs-empty-icon">📭</div>
-    <p style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:8px">No tienes sobres pendientes</p>
-    <p style="font-size:.8rem">Gana puntos para conseguir sobres:</p>
-    <ul style="margin-top:12px;text-align:left;display:inline-block;font-size:.78rem;color:var(--text2);line-height:2">
-      <li>Cada <strong>25 puntos</strong> → 1 sobre</li>
-      <li>Resultado <strong>exacto</strong> → 1 sobre extra</li>
+    <p style="font-weight:700;color:var(--text);margin-bottom:8px">No tienes sobres pendientes</p>
+    <p style="font-size:.8rem">Compra uno arriba o gana puntos para conseguir sobres gratis:</p>
+    <ul style="margin-top:12px;text-align:left;display:inline-block;font-size:.78rem;color:var(--text2);line-height:2.2">
+      <li>Cada <strong>25 pts</strong> → 1 sobre estándar gratis</li>
+      <li>Resultado <strong>exacto</strong> → 1 sobre estándar gratis</li>
+      <li>Cada día → <strong>2 sobres estándar gratis</strong></li>
     </ul>
   </div>
   {% else %}
   <div class="packs-grid">
     {% for pack in packs %}
-    <div class="pack-card">
-      <div class="pack-icon">📦</div>
-      <div class="pack-label">SOBRE<br>ESTÁNDAR</div>
+    {% set cfg = PACK_TYPES.get(pack.pack_type, PACK_TYPES.standard) %}
+    <div class="pack-card" style="border-color:{{ cfg.color }}">
+      <div class="pack-icon">{{ cfg.icon }}</div>
+      <div class="pack-label" style="color:{{ cfg.color }}">SOBRE<br>{{ cfg.name|upper }}</div>
       <div class="pack-date">{{ pack.created_at.strftime('%d/%m %H:%M') }}</div>
       <form action="{{ url_for('open_pack', pack_id=pack.id) }}" method="POST" style="width:100%">
-        <button type="submit" class="pack-open-btn">⚡ ABRIR SOBRE</button>
+        <button type="submit" class="pack-open-btn" style="background:{{ cfg.color }}">
+          ⚡ ABRIR
+        </button>
       </form>
     </div>
     {% endfor %}

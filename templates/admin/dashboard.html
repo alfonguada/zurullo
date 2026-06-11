@@ -77,5 +77,18 @@
       <div class="amenu-desc">Bloquear bonus, resultado final, bote</div>
     </a>
   </div>
+
+  <!-- SOBRES DIARIOS -->
+  <div class="settings-card" style="margin-top:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="pixel-text" style="font-size:.45rem;color:var(--muted);margin-bottom:6px">SOBRES DIARIOS</div>
+        <p style="font-size:.82rem;color:var(--text2)">Reparte 2 sobres estándar gratuitos a todos los usuarios (1 vez al día).</p>
+      </div>
+      <form action="{{ url_for('admin_daily_packs') }}" method="POST">
+        <button type="submit" class="btn-pixel btn-sm" style="background:var(--accent);color:#000">🎁 REPARTIR HOY</button>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}

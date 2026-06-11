@@ -19,6 +19,8 @@ class User(UserMixin, db.Model):
     onboarding_done = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    coins_spent  = db.Column(db.Integer, default=0)
+
     predictions  = db.relationship('Prediction', back_populates='user', lazy='dynamic')
     bonus        = db.relationship('BonusPrediction', back_populates='user', uselist=False)
     extra_bonus  = db.relationship('ExtraBonusPrediction', back_populates='user', uselist=False)
@@ -60,6 +62,10 @@ class User(UserMixin, db.Model):
     @property
     def total_points(self):
         return self.match_points + self.bonus_points + self.worst_points
+
+    @property
+    def coins(self):
+        return max(0, self.total_points - (self.coins_spent or 0))
 
     @property
     def exact_scores(self):
