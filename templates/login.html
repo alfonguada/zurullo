@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Login — Zurullo WC{% endblock %}
+{% block content %}
+<div class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="pixel-text glow-green" style="font-size:1.4rem">⚽ ZURULLO</div>
+      <div class="pixel-text glow-yellow" style="font-size:1rem; margin-top:4px">WORLD CUP 2026</div>
+    </div>
+    <div class="auth-subtitle">PLAYER LOGIN</div>
+
+    <form method="POST" autocomplete="off">
+      <div class="field-group">
+        <label class="field-label">USUARIO / EMAIL</label>
+        <input type="text" name="username" class="field-input" placeholder="tu_usuario" required autofocus>
+      </div>
+      <div class="field-group">
+        <label class="field-label">CONTRASEÑA</label>
+        <input type="password" name="password" class="field-input" placeholder="••••••••" required>
+      </div>
+      <div class="field-group" style="flex-direction:row;align-items:center;gap:10px">
+        <input type="checkbox" name="remember" id="remember" style="accent-color:var(--primary)">
+        <label for="remember" style="color:var(--muted);font-size:.8rem">Recordarme</label>
+      </div>
+      <button type="submit" class="btn-pixel btn-full">► ENTRAR AL JUEGO</button>
+    </form>
+
+    <div class="auth-switch">
+      ¿Primera vez? <a href="{{ url_for('register') }}">CREAR CUENTA</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Registro — Zurullo WC{% endblock %}
+{% block content %}
+<div class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="pixel-text glow-green" style="font-size:1.4rem">⚽ ZURULLO</div>
+      <div class="pixel-text glow-yellow" style="font-size:1rem; margin-top:4px">WORLD CUP 2026</div>
+    </div>
+    <div class="auth-subtitle">NEW PLAYER</div>
+
+    <form method="POST" autocomplete="off">
+      <div class="field-group">
+        <label class="field-label">NOMBRE DE USUARIO</label>
+        <input type="text" name="username" class="field-input" placeholder="p.ej. ElCrack7" required autofocus maxlength="50">
+      </div>
+      <div class="field-group">
+        <label class="field-label">EMAIL</label>
+        <input type="email" name="email" class="field-input" placeholder="tu@email.com" required maxlength="120">
+      </div>
+      <div class="field-group">
+        <label class="field-label">CONTRASEÑA</label>
+        <input type="password" name="password" class="field-input" placeholder="mínimo 6 caracteres" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label">REPETIR CONTRASEÑA</label>
+        <input type="password" name="password2" class="field-input" placeholder="repite la contraseña" required>
+      </div>
+      <button type="submit" class="btn-pixel btn-full">► REGISTRARSE</button>
+    </form>
+
+    <div class="auth-switch">
+      ¿Ya tienes cuenta? <a href="{{ url_for('login') }}">INICIAR SESIÓN</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

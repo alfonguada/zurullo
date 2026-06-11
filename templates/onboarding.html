@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}Setup — Zurullo WC{% endblock %}
+{% block content %}
+<div class="onboarding-screen">
+
+  <!-- STEP 1: AVATAR -->
+  <div class="ob-step" id="step-1">
+    <div class="pixel-text glow-green ob-title">CREATE YOUR PLAYER</div>
+    <p class="ob-sub">Personaliza tu perfil antes de jugar</p>
+
+    <div class="ob-card">
+      <div class="ob-avatar-preview">
+        <div class="avatar-lg" id="av-preview" style="background:#ff0066">👾</div>
+        <div class="pixel-text" id="av-name-preview" style="font-size:.6rem;margin-top:8px;color:var(--primary)">JUGADOR</div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">TU NOMBRE EN EL JUEGO</label>
+        <input type="text" id="ob-display-name" class="field-input" placeholder="p.ej. El Maestro" maxlength="30" value="{{ current_user.display_name or current_user.username }}">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">ELIGE TU AVATAR</label>
+        <div class="emoji-grid" id="emoji-grid">
+          {% for emoji in ['👾','🤖','👻','💀','🦊','🐉','🦁','🦅','🐺','🐯','🦄','🐸','👽','🎮','🏆','⚽'] %}
+          <div class="emoji-option {% if loop.first %}selected{% endif %}" data-emoji="{{ emoji }}">{{ emoji }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">COLOR DE FONDO</label>
+        <div class="color-grid" id="color-grid">
+          {% for color in ['#ff0066','#00ff88','#00ccff','#ffcc00','#ff8800','#cc00ff','#ff4444','#4444ff'] %}
+          <div class="color-option {% if loop.first %}selected{% endif %}" data-color="{{ color }}" style="background:{{ color }}"></div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button class="btn-pixel btn-full" onclick="saveProfile()">► SIGUIENTE</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: BONUS -->
+  <div class="ob-step hidden" id="step-2">
+    <div class="pixel-text glow-yellow ob-title">BONUS PREDICTIONS</div>
+    <p class="ob-sub">Congélalas antes de que empiece el mundial</p>
+
+    {% if settings and settings.bonus_locked %}
+    <div class="alert-pixel alert-warning">⚠️ Las predicciones bonus están bloqueadas por el admin.</div>
+    {% else %}
+    <div class="ob-card">
+      <div class="bonus-row">
+        <div class="bonus-badge badge-pink">+10 PTS</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🏆 CAMPEÓN DEL MUNDO</label>
+          <select id="ob-champion" class="field-input">
+            <option value="">— Selecciona un equipo —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}">{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="bonus-row">
+        <div class="bonus-badge badge-green">+5 PTS</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🥈 SUBCAMPEÓN</label>
+          <select id="ob-runner-up" class="field-input">
+            <option value="">— Selecciona un equipo —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}">{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="bonus-row">
+        <div class="bonus-badge badge-orange">+5 PTS</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">👟 MÁXIMO GOLEADOR (BOTA DE ORO)</label>
+          <input type="text" id="ob-scorer" class="field-input" placeholder="Nombre del jugador">
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <button class="btn-pixel btn-full" onclick="saveBonus()" style="margin-top:20px">► ENTRAR AL JUEGO</button>
+  </div>
+
+  <!-- STEP 3: DONE -->
+  <div class="ob-step hidden" id="step-3">
+    <div class="pixel-text glow-green ob-title" style="font-size:1rem">¡LISTO, JUGADOR!</div>
+    <div class="avatar-lg" id="final-avatar" style="background:#ff0066;font-size:3rem;margin:20px auto">👾</div>
+    <p class="ob-sub">Redirigiendo al juego...</p>
+    <div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let selectedEmoji = '👾';
+let selectedBg = '#ff0066';
+
+document.querySelectorAll('.emoji-option').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.emoji-option').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedEmoji = el.dataset.emoji;
+    document.getElementById('av-preview').textContent = selectedEmoji;
+  });
+});
+
+document.querySelectorAll('.color-option').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.color-option').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedBg = el.dataset.color;
+    document.getElementById('av-preview').style.background = selectedBg;
+  });
+});
+
+document.getElementById('ob-display-name')?.addEventListener('input', e => {
+  document.getElementById('av-name-preview').textContent = e.target.value.toUpperCase() || 'JUGADOR';
+});
+
+function saveProfile() {
+  const dn = document.getElementById('ob-display-name').value.trim();
+  if (!dn) { showFlash('Pon tu nombre de jugador.', 'error'); return; }
+  fetch('/onboarding', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({step: 'profile', display_name: dn, avatar_emoji: selectedEmoji, avatar_bg: selectedBg})
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      document.getElementById('step-1').classList.add('hidden');
+      document.getElementById('step-2').classList.remove('hidden');
+    }
+  });
+}
+
+function saveBonus() {
+  const champ = document.getElementById('ob-champion')?.value || '';
+  const sub = document.getElementById('ob-runner-up')?.value || '';
+  const scorer = document.getElementById('ob-scorer')?.value || '';
+  fetch('/onboarding', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({step: 'bonus', champion_id: champ, runner_up_id: sub, top_scorer_name: scorer})
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      document.getElementById('step-2').classList.add('hidden');
+      const final = document.getElementById('step-3');
+      final.classList.remove('hidden');
+      document.getElementById('final-avatar').textContent = selectedEmoji;
+      document.getElementById('final-avatar').style.background = selectedBg;
+      setTimeout(() => { window.location.href = data.redirect; }, 1800);
+    }
+  });
+}
+</script>
+{% endblock %}

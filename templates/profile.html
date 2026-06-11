@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block title %}Perfil — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container" style="max-width:700px">
+
+  <div class="page-header">
+    <div class="pixel-text glow-green" style="font-size:1rem">👤 MI PERFIL</div>
+  </div>
+
+  <!-- AVATAR CARD -->
+  <div class="profile-card">
+    <div class="profile-avatar-area">
+      <div class="avatar-xl" id="pv-avatar" style="background:{{ current_user.avatar_bg }}">{{ current_user.avatar_emoji }}</div>
+      <div class="pixel-text" id="pv-name" style="font-size:.6rem;margin-top:8px;color:var(--primary)">{{ current_user.name | upper }}</div>
+      <div style="color:var(--muted);font-size:.8rem">{{ current_user.email }}</div>
+    </div>
+
+    <div class="profile-stats-mini">
+      <div class="stat-box"><div class="stat-val pixel-text">{{ current_user.total_points }}</div><div class="stat-lbl">PUNTOS</div></div>
+      <div class="stat-box"><div class="stat-val pixel-text">{{ current_user.exact_scores }}</div><div class="stat-lbl">EXACTOS</div></div>
+      <div class="stat-box"><div class="stat-val pixel-text">{{ current_user.bonus_points }}</div><div class="stat-lbl">BONUS</div></div>
+      <div class="stat-box"><div class="stat-val pixel-text">{{ current_user.worst_points }}</div><div class="stat-lbl">PEOR SEL.</div></div>
+    </div>
+  </div>
+
+  <!-- AVATAR EDITOR -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">EDITAR AVATAR</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="avatar">
+      <input type="hidden" name="avatar_emoji" id="pf-emoji" value="{{ current_user.avatar_emoji }}">
+      <input type="hidden" name="avatar_bg" id="pf-bg" value="{{ current_user.avatar_bg }}">
+
+      <div class="field-group">
+        <label class="field-label">NOMBRE EN EL JUEGO</label>
+        <input type="text" name="display_name" class="field-input" value="{{ current_user.display_name or current_user.username }}" maxlength="30">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">AVATAR</label>
+        <div class="emoji-grid" id="pf-emoji-grid">
+          {% for emoji in ['👾','🤖','👻','💀','🦊','🐉','🦁','🦅','🐺','🐯','🦄','🐸','👽','🎮','🏆','⚽'] %}
+          <div class="emoji-option {% if emoji == current_user.avatar_emoji %}selected{% endif %}" data-emoji="{{ emoji }}">{{ emoji }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">COLOR</label>
+        <div class="color-grid" id="pf-color-grid">
+          {% for color in ['#ff0066','#00ff88','#00ccff','#ffcc00','#ff8800','#cc00ff','#ff4444','#4444ff'] %}
+          <div class="color-option {% if color == current_user.avatar_bg %}selected{% endif %}" data-color="{{ color }}" style="background:{{ color }}"></div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn-pixel">GUARDAR AVATAR</button>
+    </form>
+  </div>
+
+  <!-- BONUS PREDICTIONS -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">PREDICCIONES BONUS</div>
+    {% if settings and settings.bonus_locked %}
+    <div class="alert-pixel alert-warning">🔒 Las predicciones bonus están bloqueadas.</div>
+    {% if bonus %}
+    <div class="bonus-summary">
+      <div class="bonus-row-sm"><span class="bonus-badge badge-pink">+10</span>
+        {% if bonus.champion %}{{ bonus.champion.flag_emoji }} {{ bonus.champion.name }}{% else %}—{% endif %}
+        {% if bonus.champion_points %}<span class="pts-pill">✓ +{{ bonus.champion_points }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-green">+5</span>
+        {% if bonus.runner_up %}{{ bonus.runner_up.flag_emoji }} {{ bonus.runner_up.name }}{% else %}—{% endif %}
+        {% if bonus.runner_up_points %}<span class="pts-pill">✓ +{{ bonus.runner_up_points }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-orange">+5</span>
+        {{ bonus.top_scorer_name or '—' }}
+        {% if bonus.scorer_points %}<span class="pts-pill">✓ +{{ bonus.scorer_points }}</span>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <form method="POST">
+      <input type="hidden" name="action" value="bonus">
+      <div class="bonus-row">
+        <div class="bonus-badge badge-pink">+10</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🏆 CAMPEÓN DEL MUNDO</label>
+          <select name="champion_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}" {% if bonus and bonus.champion_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-green">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🥈 SUBCAMPEÓN</label>
+          <select name="runner_up_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}" {% if bonus and bonus.runner_up_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-orange">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">👟 MÁXIMO GOLEADOR</label>
+          <input type="text" name="top_scorer_name" class="field-input" value="{{ bonus.top_scorer_name if bonus else '' }}" placeholder="Nombre del jugador">
+        </div>
+      </div>
+      <button type="submit" class="btn-pixel">GUARDAR BONUS</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- WORST TEAM -->
+  {% if worst %}
+  <div class="settings-card">
+    <div class="settings-title pixel-text">MI PEOR SELECCIÓN</div>
+    <div class="worst-team-display">
+      {{ flagx(worst.team) }}
+      <div>
+        <div style="font-size:1.1rem;font-weight:700">{{ worst.team.name }}</div>
+        <div style="color:var(--muted);font-size:.8rem">Puntos acumulados</div>
+      </div>
+      <div class="pts-counter" style="font-size:1.5rem">{{ worst.points_earned }}</div>
+    </div>
+    <div style="font-size:.75rem;color:var(--muted);margin-top:10px">
+      +1 pto/gol marcado · +1 pto/cada 3 goles encajados
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- CHANGE PASSWORD -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">CAMBIAR CONTRASEÑA</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="password">
+      <div class="field-group">
+        <label class="field-label">CONTRASEÑA ACTUAL</label>
+        <input type="password" name="current_password" class="field-input" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label">NUEVA CONTRASEÑA</label>
+        <input type="password" name="new_password" class="field-input" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label">REPETIR NUEVA</label>
+        <input type="password" name="new_password2" class="field-input" required>
+      </div>
+      <button type="submit" class="btn-pixel btn-secondary">CAMBIAR CONTRASEÑA</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('#pf-emoji-grid .emoji-option').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('#pf-emoji-grid .emoji-option').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('pf-emoji').value = el.dataset.emoji;
+    document.getElementById('pv-avatar').textContent = el.dataset.emoji;
+  });
+});
+document.querySelectorAll('#pf-color-grid .color-option').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('#pf-color-grid .color-option').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('pf-bg').value = el.dataset.color;
+    document.getElementById('pv-avatar').style.background = el.dataset.color;
+  });
+});
+</script>
+{% endblock %}

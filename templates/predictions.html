@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% block title %}Porras — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+
+  <div class="page-header">
+    <div class="pixel-text glow-green" style="font-size:1rem">⚽ MIS PORRAS</div>
+  </div>
+
+  <!-- PHASE FILTER -->
+  <div class="phase-tabs">
+    {% for code, label in [('all','Todo'),('group','Grupos'),('r16','Octavos'),('qf','Cuartos'),('sf','Semis'),('final','FINAL')] %}
+    <a href="{{ url_for('predictions', phase=code) }}" class="phase-tab {% if phase == code %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend-bar">
+    <span class="legend-item"><span class="dot dot-exact"></span> Exacto +3</span>
+    <span class="legend-item"><span class="dot dot-tend"></span> Tendencia +1</span>
+    <span class="legend-item"><span class="dot dot-miss"></span> Fallo +0</span>
+    <span class="legend-item"><span class="dot dot-double"></span> Doble ×2</span>
+  </div>
+
+  {% if not matches %}
+  <div class="empty-state">No hay partidos en esta fase aún.<br>El admin los irá añadiendo.</div>
+  {% else %}
+    {% for date_str, day_matches in by_date.items() | sort %}
+    <div class="day-group">
+      <div class="day-header pixel-text">
+        {{ day_matches[0].match_date.strftime('%A, %d de %B de %Y') | upper }}
+      </div>
+
+      {% for match in day_matches %}
+      {% set pred = preds.get(match.id) %}
+      <div class="match-card-full {% if match.double_points %}match-double{% endif %}
+        {% if pred and pred.points_earned is not none %}
+          {% if pred.points_earned in [3,6] %}glow-exact
+          {% elif pred.points_earned in [1,2] %}glow-tend
+          {% else %}glow-miss{% endif %}
+        {% endif %}">
+
+        <div class="mcf-top">
+          <div class="mcf-meta">
+            <span class="match-phase">{{ match.display_phase }}</span>
+            {% if match.double_points %}<span class="double-tag">×2 🇪🇸</span>{% endif %}
+            {% if match.is_locked %}<span class="locked-tag">🔒</span>{% endif %}
+          </div>
+          <div class="mcf-datetime">{{ match.match_date.strftime('%d/%m/%Y %H:%M') }}
+            {% if match.city %} · {{ match.city }}{% endif %}
+          </div>
+        </div>
+
+        <div class="mcf-body">
+          <!-- TEAM 1 -->
+          <div class="mcf-team">
+            <span class="mcf-flag">{{ flag(match.team1) }}</span>
+            <span class="mcf-name">{{ match.team1.name }}</span>
+          </div>
+
+          <!-- CENTER: result or input -->
+          <div class="mcf-center">
+            {% if match.result_entered %}
+              <!-- Show result -->
+              <div class="result-display pixel-text">{{ match.goals1 }} - {{ match.goals2 }}</div>
+              {% if pred %}
+              <div class="pred-display
+                {% if pred.points_earned in [3,6] %}pred-exact
+                {% elif pred.points_earned in [1,2] %}pred-tend
+                {% else %}pred-miss{% endif %}">
+                {{ pred.goals1 }}-{{ pred.goals2 }}
+                <span class="pts-badge">+{{ pred.points_earned or 0 }}</span>
+              </div>
+              {% else %}
+              <div class="pred-none">Sin porra</div>
+              {% endif %}
+              <button class="btn-see-preds" onclick="loadPreds({{ match.id }}, this)">VER TODAS</button>
+            {% elif match.is_locked %}
+              <div class="locked-msg">🔒 BLOQUEADO</div>
+              {% if pred %}
+              <div class="pred-pending">Tu porra: {{ pred.goals1 }}-{{ pred.goals2 }}</div>
+              {% endif %}
+            {% else %}
+              <!-- Prediction input -->
+              <div class="pred-input-group" data-match="{{ match.id }}">
+                <input type="number" class="score-inp" min="0" max="20" value="{{ pred.goals1 if pred else 0 }}" id="g1-{{ match.id }}">
+                <span class="score-sep">—</span>
+                <input type="number" class="score-inp" min="0" max="20" value="{{ pred.goals2 if pred else 0 }}" id="g2-{{ match.id }}">
+              </div>
+              {% if match.phase != 'group' %}
+              <div style="font-size:.65rem;color:var(--muted);text-align:center">Sin empates en eliminatorias</div>
+              {% endif %}
+              <button class="btn-save-pred {% if pred %}saved{% endif %}" id="btn-{{ match.id }}"
+                onclick="savePred({{ match.id }})">
+                {{ '✓ GUARDADO' if pred else '► GUARDAR' }}
+              </button>
+            {% endif %}
+          </div>
+
+          <!-- TEAM 2 -->
+          <div class="mcf-team mcf-team-right">
+            <span class="mcf-name">{{ match.team2.name }}</span>
+            <span class="mcf-flag">{{ flag(match.team2) }}</span>
+          </div>
+        </div>
+
+        <!-- Predictions comparison panel (hidden by default) -->
+        <div class="preds-panel hidden" id="preds-{{ match.id }}">
+          <div class="preds-loading">Cargando...</div>
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  {% endif %}
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function savePred(matchId) {
+  const g1 = document.getElementById('g1-' + matchId).value;
+  const g2 = document.getElementById('g2-' + matchId).value;
+  const btn = document.getElementById('btn-' + matchId);
+  btn.textContent = '...';
+  btn.disabled = true;
+  fetch('/predict/' + matchId, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({goals1: g1, goals2: g2})
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      btn.textContent = '✓ GUARDADO';
+      btn.classList.add('saved');
+      btn.disabled = false;
+    } else {
+      btn.textContent = '► GUARDAR';
+      btn.disabled = false;
+      showFlash(data.error || 'Error al guardar.', 'error');
+    }
+  }).catch(() => {
+    btn.textContent = '► GUARDAR';
+    btn.disabled = false;
+  });
+}
+
+function loadPreds(matchId, btn) {
+  const panel = document.getElementById('preds-' + matchId);
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+    btn.textContent = 'CERRAR';
+    fetch('/match/' + matchId + '/predictions').then(r => r.json()).then(data => {
+      if (data.error) { panel.innerHTML = '<div class="preds-loading">' + data.error + '</div>'; return; }
+      let html = '<div class="preds-grid">';
+      data.forEach(p => {
+        const cls = p.pts >= 3 ? 'pred-exact' : (p.pts >= 1 ? 'pred-tend' : 'pred-miss');
+        html += `<div class="pred-row ${cls}">
+          <span class="avatar-xs" style="background:${p.bg}">${p.emoji}</span>
+          <span>${p.name}</span>
+          <span class="pixel-text">${p.g1}-${p.g2}</span>
+          <span class="pts-badge">+${p.pts}</span>
+        </div>`;
+      });
+      html += '</div>';
+      panel.innerHTML = html;
+    });
+  } else {
+    panel.classList.add('hidden');
+    btn.textContent = 'VER TODAS';
+  }
+}
+</script>
+{% endblock %}

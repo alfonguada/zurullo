@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div class="pixel-text glow-pink" style="font-size:1rem">⚙️ PANEL ADMIN</div>
+  </div>
+
+  <div class="admin-stat-grid">
+    <div class="admin-stat-card">
+      <div class="admin-stat-val pixel-text">{{ total_users }}</div>
+      <div class="admin-stat-lbl">JUGADORES</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-val pixel-text">{{ total_matches }}</div>
+      <div class="admin-stat-lbl">PARTIDOS</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-val pixel-text">{{ pending }}</div>
+      <div class="admin-stat-lbl">SIN RESULTADO</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-val pixel-text">{{ "%.0f"|format(prize_pool) }}€</div>
+      <div class="admin-stat-lbl">BOTE</div>
+    </div>
+  </div>
+
+  <div class="admin-menu-grid">
+    <a href="{{ url_for('admin_results') }}" class="admin-menu-card card-pink">
+      <div class="amenu-icon">⚽</div>
+      <div class="pixel-text amenu-title">RESULTADOS</div>
+      <div class="amenu-desc">Introduce el resultado de los partidos jugados</div>
+    </a>
+    <a href="{{ url_for('admin_matches') }}" class="admin-menu-card card-blue">
+      <div class="amenu-icon">📅</div>
+      <div class="pixel-text amenu-title">PARTIDOS</div>
+      <div class="amenu-desc">Añade partidos al calendario</div>
+    </a>
+    <a href="{{ url_for('admin_users') }}" class="admin-menu-card card-green">
+      <div class="amenu-icon">👥</div>
+      <div class="pixel-text amenu-title">JUGADORES</div>
+      <div class="amenu-desc">Asigna equipos peores y gestiona cuentas</div>
+    </a>
+    <a href="{{ url_for('admin_teams') }}" class="admin-menu-card card-orange">
+      <div class="amenu-icon">🏳️</div>
+      <div class="pixel-text amenu-title">EQUIPOS</div>
+      <div class="amenu-desc">Gestiona equipos y peores selecciones</div>
+    </a>
+    <a href="{{ url_for('admin_settings') }}" class="admin-menu-card card-purple">
+      <div class="amenu-icon">🔧</div>
+      <div class="pixel-text amenu-title">AJUSTES</div>
+      <div class="amenu-desc">Bloquear bonus, resultado final, bote</div>
+    </a>
+  </div>
+</div>
+{% endblock %}

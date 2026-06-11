@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Equipos Admin — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div class="pixel-text glow-orange">🏳️ GESTIÓN DE EQUIPOS</div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-pixel btn-sm">← VOLVER</a>
+  </div>
+
+  <div class="settings-card">
+    <div class="settings-title pixel-text">➕ AÑADIR EQUIPO</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="add">
+      <div class="form-grid-3">
+        <div class="field-group">
+          <label class="field-label">NOMBRE</label>
+          <input type="text" name="name" class="field-input" required placeholder="España">
+        </div>
+        <div class="field-group">
+          <label class="field-label">EMOJI BANDERA</label>
+          <input type="text" name="flag_emoji" class="field-input" placeholder="🇪🇸" maxlength="10">
+        </div>
+        <div class="field-group">
+          <label class="field-label">GRUPO</label>
+          <input type="text" name="group_letter" class="field-input" maxlength="1" placeholder="A">
+        </div>
+      </div>
+      <div style="display:flex;gap:20px;margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="is_worst" style="accent-color:var(--secondary)">
+          <span class="field-label" style="margin:0">😬 PEOR SELECCIÓN</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="is_spain_group" style="accent-color:var(--primary)">
+          <span class="field-label" style="margin:0">🇪🇸 GRUPO ESPAÑA (×2)</span>
+        </label>
+      </div>
+      <button type="submit" class="btn-pixel">➕ AÑADIR</button>
+    </form>
+  </div>
+
+  <div class="settings-card">
+    <div class="settings-title pixel-text">{{ teams|length }} EQUIPOS</div>
+    <div class="admin-teams-grid">
+      {% for t in teams %}
+      <div class="team-edit-row">
+        <form method="POST" class="team-edit-form">
+          <input type="hidden" name="action" value="edit">
+          <input type="hidden" name="team_id" value="{{ t.id }}">
+          <span style="font-size:1.5rem">{{ t.flag_emoji }}</span>
+          <input type="text" name="flag_emoji" class="field-input field-input-sm" value="{{ t.flag_emoji }}" maxlength="10" style="width:60px">
+          <input type="text" name="name" class="field-input" value="{{ t.name }}" required>
+          <input type="text" name="group_letter" class="field-input field-input-sm" value="{{ t.group_letter or '' }}" maxlength="1" placeholder="Grp" style="width:50px">
+          <label title="Peor selección" style="display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted)">
+            <input type="checkbox" name="is_worst" {% if t.is_worst %}checked{% endif %} style="accent-color:var(--secondary)"> 😬
+          </label>
+          <label title="Grupo España" style="display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted)">
+            <input type="checkbox" name="is_spain_group" {% if t.is_spain_group %}checked{% endif %} style="accent-color:var(--primary)"> 🇪🇸×2
+          </label>
+          <button type="submit" class="btn-pixel btn-xs">✓</button>
+        </form>
+        <form method="POST" onsubmit="return confirm('¿Eliminar?')">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="team_id" value="{{ t.id }}">
+          <button type="submit" class="btn-pixel btn-xs btn-danger">✕</button>
+        </form>
+      </div>
+      {% else %}
+      <div class="empty-state">Sin equipos. Añade o ejecuta el seed.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

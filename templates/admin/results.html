@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Resultados Admin — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div class="pixel-text glow-pink">⚽ INTRODUCIR RESULTADOS</div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-pixel btn-sm">← VOLVER</a>
+  </div>
+
+  <div class="results-list">
+    {% for match in matches %}
+    <div class="result-entry-card {% if match.result_entered %}done{% endif %}">
+      <div class="rec-header">
+        <span class="match-phase">{{ match.display_phase }}</span>
+        <span class="match-date">{{ match.match_date.strftime('%d/%m/%Y %H:%M') }}</span>
+        {% if match.double_points %}<span class="double-tag">×2 🇪🇸</span>{% endif %}
+        {% if match.result_entered %}<span class="done-tag">✓ RESULTADO</span>{% endif %}
+      </div>
+      <div class="rec-body">
+        <div class="rec-teams">
+          <span class="rec-team">{{ flag(match.team1) }} {{ match.team1.name }}</span>
+          {% if match.result_entered %}
+          <span class="rec-score pixel-text">{{ match.goals1 }} — {{ match.goals2 }}</span>
+          {% else %}
+          <span class="rec-vs pixel-text">VS</span>
+          {% endif %}
+          <span class="rec-team">{{ match.team2.name }} {{ flag(match.team2) }}</span>
+        </div>
+        <form method="POST" class="rec-form">
+          <input type="hidden" name="match_id" value="{{ match.id }}">
+          <input type="number" name="goals1" class="score-inp" min="0" max="30" value="{{ match.goals1 or 0 }}" required>
+          <span style="color:var(--muted)">—</span>
+          <input type="number" name="goals2" class="score-inp" min="0" max="30" value="{{ match.goals2 or 0 }}" required>
+          <button type="submit" class="btn-pixel btn-sm btn-pink" onclick="return confirm('¿Guardar resultado?')">
+            {{ '✓ ACTUALIZAR' if match.result_entered else '► GUARDAR' }}
+          </button>
+        </form>
+      </div>
+      <div class="rec-stats">
+        {{ match.predictions.count() }} porras registradas
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">No hay partidos todavía. Añade partidos primero.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

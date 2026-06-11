@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Ajustes Admin — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container" style="max-width:700px">
+  <div class="page-header">
+    <div class="pixel-text glow-purple">🔧 AJUSTES DEL TORNEO</div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-pixel btn-sm">← VOLVER</a>
+  </div>
+
+  <!-- PRIZE POOL -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">💰 BOTE DEL TORNEO</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="prize">
+      <div class="field-group" style="flex-direction:row;gap:12px;align-items:flex-end">
+        <div style="flex:1">
+          <label class="field-label">IMPORTE TOTAL (€)</label>
+          <input type="number" name="prize_pool" class="field-input" value="{{ settings.prize_pool or 0 }}" min="0" step="1">
+        </div>
+        <button type="submit" class="btn-pixel">GUARDAR</button>
+      </div>
+    </form>
+    {% if settings.prize_pool > 0 %}
+    <div style="margin-top:12px;font-size:.85rem;color:var(--muted)">
+      🥇 Ganador (60%): {{ "%.0f"|format(settings.prize_pool * 0.60) }}€ &nbsp;
+      🥈 2º (25%): {{ "%.0f"|format(settings.prize_pool * 0.25) }}€ &nbsp;
+      🥉 3º (15%): {{ "%.0f"|format(settings.prize_pool * 0.15) }}€
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- BONUS LOCK -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">🔒 BLOQUEO DE BONUS</div>
+    <p style="color:var(--muted);font-size:.85rem">
+      Bloquea las predicciones bonus (campeón, subcampeón, goleador) para que nadie pueda modificarlas.
+    </p>
+    <form method="POST">
+      <input type="hidden" name="action" value="lock_bonus">
+      <button type="submit" class="btn-pixel {% if settings.bonus_locked %}btn-danger{% else %}btn-green{% endif %}">
+        {% if settings.bonus_locked %}🔒 BONUS BLOQUEADO — DESBLOQUEAR{% else %}🔓 BONUS ABIERTO — BLOQUEAR{% endif %}
+      </button>
+    </form>
+  </div>
+
+  <!-- FINAL RESULT + BONUS CALCULATION -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">🏆 RESULTADO FINAL</div>
+    <p style="color:var(--muted);font-size:.85rem">Al guardar se calcularán automáticamente los puntos bonus de todos los jugadores.</p>
+    <form method="POST">
+      <input type="hidden" name="action" value="final">
+      <div class="field-group">
+        <label class="field-label">🏆 CAMPEÓN DEL MUNDO</label>
+        <select name="champion_id" class="field-input">
+          <option value="">— Sin definir —</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {% if settings.champion_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">🥈 SUBCAMPEÓN</label>
+        <select name="runner_up_id" class="field-input">
+          <option value="">— Sin definir —</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {% if settings.runner_up_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">👟 MÁXIMO GOLEADOR</label>
+        <input type="text" name="top_scorer_name" class="field-input" value="{{ settings.top_scorer_name or '' }}" placeholder="Nombre exacto">
+      </div>
+      <button type="submit" class="btn-pixel btn-pink">GUARDAR Y CALCULAR BONUS</button>
+    </form>
+  </div>
+
+  <!-- RECALCULATE -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">🔄 RECALCULAR PUNTOS</div>
+    <p style="color:var(--muted);font-size:.85rem">Recalcula todos los puntos de todas las porras y equipos peores. Úsalo si algo no cuadra.</p>
+    <form method="POST" onsubmit="return confirm('¿Recalcular todos los puntos?')">
+      <input type="hidden" name="action" value="recalc">
+      <button type="submit" class="btn-pixel btn-secondary">🔄 RECALCULAR TODO</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block title %}Ranking — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+
+  <div class="page-header">
+    <div class="pixel-text glow-yellow" style="font-size:1rem">🏆 CLASIFICACIÓN</div>
+    {% if settings and settings.prize_pool > 0 %}
+    <div class="prize-breakdown">
+      <span>💰 Bote: <strong>{{ "%.0f"|format(settings.prize_pool) }}€</strong></span>
+      <span>🥇 1º: {{ "%.0f"|format(settings.prize_pool * 0.60) }}€</span>
+      <span>🥈 2º: {{ "%.0f"|format(settings.prize_pool * 0.25) }}€</span>
+      <span>🥉 3º: {{ "%.0f"|format(settings.prize_pool * 0.15) }}€</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="lb-table-wrap">
+    <table class="lb-table">
+      <thead>
+        <tr>
+          <th class="pixel-text">#</th>
+          <th>JUGADOR</th>
+          <th class="pixel-text text-center">TOTAL</th>
+          <th class="text-center hidden-mobile">PARTIDOS</th>
+          <th class="text-center hidden-mobile">BONUS</th>
+          <th class="text-center hidden-mobile">PEOR SEL.</th>
+          <th class="text-center hidden-mobile">EXACTOS</th>
+          <th class="text-center hidden-mobile">PEOR EQUIPO</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="lb-tr {% if row.user.id == current_user.id %}lb-tr-me{% endif %}
+          {% if row.rank == 1 %}lb-gold{% elif row.rank == 2 %}lb-silver{% elif row.rank == 3 %}lb-bronze{% endif %}">
+          <td class="pixel-text lb-rank-cell">
+            {% if row.rank == 1 %}🥇{% elif row.rank == 2 %}🥈{% elif row.rank == 3 %}🥉
+            {% else %}{{ row.rank }}{% endif %}
+          </td>
+          <td>
+            <div class="lb-player">
+              <span class="avatar-sm" style="background:{{ row.user.avatar_bg }}">{{ row.user.avatar_emoji }}</span>
+              <span class="lb-player-name">{{ row.user.name }}</span>
+              {% if row.user.is_admin %}<span class="admin-badge">ADMIN</span>{% endif %}
+            </div>
+          </td>
+          <td class="text-center">
+            <span class="total-pts pixel-text {% if row.rank == 1 %}glow-yellow{% elif row.rank <= 3 %}glow-green{% endif %}">
+              {{ row.total }}
+            </span>
+          </td>
+          <td class="text-center hidden-mobile text-muted">{{ row.match_pts }}</td>
+          <td class="text-center hidden-mobile text-muted">{{ row.bonus_pts }}</td>
+          <td class="text-center hidden-mobile text-muted">{{ row.worst_pts }}</td>
+          <td class="text-center hidden-mobile">
+            <span class="exact-count">{{ row.exact }}</span>
+          </td>
+          <td class="text-center hidden-mobile" style="font-size:.8rem;color:var(--muted)">
+            {% if row.user.worst_team %}
+            {{ flag(row.user.worst_team.team) }} {{ row.user.worst_team.team.name }}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BONUS PREDICTIONS TABLE -->
+  {% set shown_bonus = rows | selectattr('user.bonus') | list %}
+  {% if shown_bonus %}
+  <div class="bonus-table-section">
+    <div class="section-header">
+      <span class="pixel-text section-title">PREDICCIONES BONUS</span>
+    </div>
+    <div class="lb-table-wrap">
+      <table class="lb-table">
+        <thead>
+          <tr>
+            <th>JUGADOR</th>
+            <th class="text-center">🏆 CAMPEÓN (+10)</th>
+            <th class="text-center">🥈 SUBCAMPEÓN (+5)</th>
+            <th class="text-center">👟 GOLEADOR (+5)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          {% if row.user.bonus %}
+          <tr class="{% if row.user.id == current_user.id %}lb-tr-me{% endif %}">
+            <td>
+              <div class="lb-player">
+                <span class="avatar-xs" style="background:{{ row.user.avatar_bg }}">{{ row.user.avatar_emoji }}</span>
+                {{ row.user.name }}
+              </div>
+            </td>
+            <td class="text-center">
+              {% if row.user.bonus.champion %}
+              <span {% if settings and settings.champion_id == row.user.bonus.champion_id %}class="correct-pick"{% endif %}>
+                {{ flag(row.user.bonus.champion) }} {{ row.user.bonus.champion.name }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-center">
+              {% if row.user.bonus.runner_up %}
+              <span {% if settings and settings.runner_up_id == row.user.bonus.runner_up_id %}class="correct-pick"{% endif %}>
+                {{ flag(row.user.bonus.runner_up) }} {{ row.user.bonus.runner_up.name }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-center">
+              {% if row.user.bonus.top_scorer_name %}
+              <span {% if settings and settings.top_scorer_name and row.user.bonus.top_scorer_name.lower().strip() == settings.top_scorer_name.lower().strip() %}class="correct-pick"{% endif %}>
+                {{ row.user.bonus.top_scorer_name }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

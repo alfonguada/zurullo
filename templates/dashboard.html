@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Inicio — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+
+  <!-- HERO STATS -->
+  <div class="hero-stats">
+    <div class="hero-avatar">
+      <div class="avatar-xl" style="background:{{ current_user.avatar_bg }}">{{ current_user.avatar_emoji }}</div>
+    </div>
+    <div class="hero-info">
+      <div class="pixel-text glow-green hero-name">{{ current_user.name | upper }}</div>
+      <div class="hero-points">
+        <span class="pts-counter">{{ current_user.total_points }}</span>
+        <span class="pts-label pixel-text">PTS</span>
+      </div>
+      <div class="hero-rank">
+        <span class="rank-badge">RANK #{{ user_rank }}</span>
+        <span class="rank-exact">{{ current_user.exact_scores }} exactos</span>
+      </div>
+    </div>
+    {% if prize_pool > 0 %}
+    <div class="prize-display">
+      <div class="pixel-text" style="font-size:.5rem;color:var(--muted)">BOTE</div>
+      <div class="prize-amount">{{ "%.0f"|format(prize_pool) }}€</div>
+      <div style="font-size:.7rem;color:var(--muted)">{{ total_users }} jugadores</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="dash-grid">
+
+    <!-- UPCOMING MATCHES -->
+    <div class="dash-col">
+      <div class="section-header">
+        <span class="pixel-text section-title">PRÓXIMOS PARTIDOS</span>
+        <a href="{{ url_for('predictions') }}" class="section-link">VER TODO →</a>
+      </div>
+      {% if upcoming %}
+        {% for match in upcoming %}
+        <div class="match-card {% if match.double_points %}match-double{% endif %}">
+          {% if match.double_points %}
+          <div class="double-badge">×2 🇪🇸</div>
+          {% endif %}
+          <div class="match-meta">
+            <span class="match-phase">{{ match.display_phase }}</span>
+            <span class="match-date">{{ match.match_date.strftime('%d/%m %H:%M') }}</span>
+          </div>
+          <div class="match-teams">
+            <div class="team-side">
+              <span class="team-flag">{{ flag(match.team1) }}</span>
+              <span class="team-name">{{ match.team1.name }}</span>
+            </div>
+            <div class="match-vs">
+              {% if preds.get(match.id) %}
+              <div class="my-pred">{{ preds[match.id].goals1 }}-{{ preds[match.id].goals2 }}</div>
+              {% else %}
+              <div class="vs-text">VS</div>
+              {% endif %}
+            </div>
+            <div class="team-side team-right">
+              <span class="team-name">{{ match.team2.name }}</span>
+              <span class="team-flag">{{ flag(match.team2) }}</span>
+            </div>
+          </div>
+          {% if not preds.get(match.id) and not match.is_locked %}
+          <a href="{{ url_for('predictions') }}" class="btn-predict-small">PRONOSTICAR →</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="empty-state">No hay partidos próximos</div>
+      {% endif %}
+    </div>
+
+    <!-- LEADERBOARD MINI + RECENT -->
+    <div class="dash-col">
+      <div class="section-header">
+        <span class="pixel-text section-title">CLASIFICACIÓN</span>
+        <a href="{{ url_for('leaderboard') }}" class="section-link">COMPLETA →</a>
+      </div>
+      <div class="mini-leaderboard">
+        {% for u in top5 %}
+        <div class="lb-row {% if u.id == current_user.id %}lb-me{% endif %}">
+          <span class="lb-rank pixel-text">
+            {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
+          </span>
+          <span class="avatar-xs" style="background:{{ u.avatar_bg }}">{{ u.avatar_emoji }}</span>
+          <span class="lb-name">{{ u.name }}</span>
+          <span class="lb-pts pixel-text">{{ u.total_points }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="section-header" style="margin-top:24px">
+        <span class="pixel-text section-title">ÚLTIMOS RESULTADOS</span>
+      </div>
+      {% if recent %}
+        {% for match in recent %}
+        {% set pred = preds.get(match.id) %}
+        <div class="result-card {% if pred %}
+          {% if pred.points_earned == 3 or pred.points_earned == 6 %}result-exact
+          {% elif pred.points_earned == 1 or pred.points_earned == 2 %}result-tend
+          {% else %}result-miss{% endif %}
+        {% endif %}">
+          <div class="result-teams">
+            <span>{{ flag(match.team1) }} {{ match.team1.name }}</span>
+            <span class="result-score pixel-text">{{ match.goals1 }}-{{ match.goals2 }}</span>
+            <span>{{ match.team2.name }} {{ flag(match.team2) }}</span>
+          </div>
+          {% if pred %}
+          <div class="result-mypred">
+            Tu porra: {{ pred.goals1 }}-{{ pred.goals2 }}
+            <span class="pts-pill">+{{ pred.points_earned or 0 }}pts</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="empty-state">Sin resultados aún</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

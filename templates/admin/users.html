@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Jugadores Admin — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div class="pixel-text glow-green">👥 GESTIÓN DE JUGADORES</div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-pixel btn-sm">← VOLVER</a>
+  </div>
+
+  <div class="settings-card">
+    <div class="settings-title pixel-text">{{ users|length }} JUGADORES REGISTRADOS</div>
+    <div class="admin-users-list">
+      {% for user in users %}
+      <div class="admin-user-row">
+        <div class="aur-player">
+          <span class="avatar-sm" style="background:{{ user.avatar_bg }}">{{ user.avatar_emoji }}</span>
+          <div>
+            <div class="aur-name">{{ user.name }} {% if user.is_admin %}<span class="admin-badge">ADMIN</span>{% endif %}</div>
+            <div style="font-size:.75rem;color:var(--muted)">{{ user.email }}</div>
+          </div>
+        </div>
+
+        <div class="aur-stats">
+          <span class="pixel-text" style="color:var(--primary)">{{ user.total_points }} PTS</span>
+        </div>
+
+        <!-- Assign worst team -->
+        <form method="POST" class="aur-form">
+          <input type="hidden" name="action" value="assign_worst">
+          <input type="hidden" name="user_id" value="{{ user.id }}">
+          <select name="team_id" class="field-input field-input-sm" onchange="this.form.submit()">
+            <option value="">— Peor equipo —</option>
+            {% for t in worst_teams %}
+            <option value="{{ t.id }}" {% if assignments.get(user.id) and assignments[user.id].team_id == t.id %}selected{% endif %}>
+              {{ t.flag_emoji }} {{ t.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </form>
+
+        {% if user.id != current_user.id %}
+        <form method="POST" style="display:inline">
+          <input type="hidden" name="action" value="toggle_admin">
+          <input type="hidden" name="user_id" value="{{ user.id }}">
+          <button type="submit" class="btn-pixel btn-xs {% if user.is_admin %}btn-danger{% endif %}">
+            {{ 'Quitar Admin' if user.is_admin else 'Hacer Admin' }}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="empty-state">No hay jugadores aún.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

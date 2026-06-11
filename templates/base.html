@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#060612">
+  <title>{% block title %}Zurullo WC{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+{% if current_user.is_authenticated %}
+
+  <!-- ── DESKTOP NAV ── -->
+  <nav class="desktop-nav">
+    <div class="desktop-nav-inner">
+      <a href="{{ url_for('dashboard') }}" class="nav-logo pixel-text">⚽ ZURULLO WC</a>
+      <div class="desktop-nav-links">
+        <a href="{{ url_for('dashboard') }}"   class="dnl {% if request.endpoint=='dashboard' %}active{% endif %}">INICIO</a>
+        <a href="{{ url_for('predictions') }}" class="dnl {% if request.endpoint=='predictions' %}active{% endif %}">PORRAS</a>
+        <a href="{{ url_for('leaderboard') }}" class="dnl {% if request.endpoint=='leaderboard' %}active{% endif %}">RANKING</a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin_dashboard') }}" class="dnl dnl-admin {% if 'admin' in request.endpoint %}active{% endif %}">ADMIN</a>
+        {% endif %}
+      </div>
+      <div class="desktop-nav-user">
+        <a href="{{ url_for('profile') }}" class="nav-avatar-chip">
+          <span class="av av-sm" style="background:{{ current_user.avatar_bg }}">{{ current_user.avatar_emoji }}</span>
+          <span class="nav-uname">{{ current_user.name }}</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="dnl" title="Salir">↩</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── MOBILE APP BAR ── -->
+  <header class="mobile-appbar">
+    <a href="{{ url_for('dashboard') }}" class="appbar-logo pixel-text">⚽ ZURULLO</a>
+    <div class="appbar-right">
+      <a href="{{ url_for('profile') }}" class="appbar-avatar">
+        <span class="av av-sm" style="background:{{ current_user.avatar_bg }}">{{ current_user.avatar_emoji }}</span>
+      </a>
+    </div>
+  </header>
+
+{% endif %}
+
+<!-- ── FLASH MESSAGES ── -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-container">
+    {% for cat, msg in messages %}
+    <div class="flash flash-{{ cat }}">
+      <span>{{ msg }}</span>
+      <button onclick="this.parentElement.remove()">×</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<!-- ── MAIN CONTENT ── -->
+<main class="main-content {% if not current_user.is_authenticated %}no-nav{% endif %}">
+  {% block content %}{% endblock %}
+</main>
+
+{% if current_user.is_authenticated %}
+<!-- ── MOBILE BOTTOM NAV ── -->
+<nav class="bottom-nav">
+  <a href="{{ url_for('dashboard') }}"   class="bn-item {% if request.endpoint=='dashboard' %}active{% endif %}">
+    <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    <span class="bn-label">Inicio</span>
+  </a>
+  <a href="{{ url_for('predictions') }}" class="bn-item {% if request.endpoint=='predictions' %}active{% endif %}">
+    <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="var(--bg)" d="M12 5a7 7 0 1 0 0 14A7 7 0 0 0 12 5zm0 2.5l1.5 3h3l-2.5 1.8 1 3-3-2.2-3 2.2 1-3L7.5 10.5h3z"/></svg>
+    <span class="bn-label">Porras</span>
+  </a>
+  <a href="{{ url_for('leaderboard') }}" class="bn-item {% if request.endpoint=='leaderboard' %}active{% endif %}">
+    <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 16V8h2v8zm4-2V6h2v8zm4 4V10h2v8zM3 20h18v2H3z"/></svg>
+    <span class="bn-label">Ranking</span>
+  </a>
+  <a href="{{ url_for('profile') }}"     class="bn-item {% if request.endpoint=='profile' %}active{% endif %}">
+    <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+    <span class="bn-label">Perfil</span>
+  </a>
+  {% if current_user.is_admin %}
+  <a href="{{ url_for('admin_dashboard') }}" class="bn-item {% if 'admin' in (request.endpoint or '') %}active{% endif %}">
+    <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+    <span class="bn-label">Admin</span>
+  </a>
+  {% endif %}
+</nav>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Partidos Admin — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div class="pixel-text glow-blue">📅 GESTIÓN DE PARTIDOS</div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-pixel btn-sm">← VOLVER</a>
+  </div>
+
+  <!-- ADD MATCH FORM -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">➕ AÑADIR PARTIDO</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="add">
+      <div class="form-grid-3">
+        <div class="field-group">
+          <label class="field-label">FASE</label>
+          <select name="phase" class="field-input" required>
+            <option value="group">Fase de Grupos</option>
+            <option value="r16">Octavos de Final</option>
+            <option value="qf">Cuartos de Final</option>
+            <option value="sf">Semifinales</option>
+            <option value="final">FINAL</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">EQUIPO LOCAL</label>
+          <select name="team1_id" class="field-input" required>
+            <option value="">— Selecciona —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}">{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">EQUIPO VISITANTE</label>
+          <select name="team2_id" class="field-input" required>
+            <option value="">— Selecciona —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}">{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">FECHA Y HORA</label>
+          <input type="datetime-local" name="match_date" class="field-input" required>
+        </div>
+        <div class="field-group">
+          <label class="field-label">CIUDAD</label>
+          <input type="text" name="city" class="field-input" placeholder="Los Ángeles">
+        </div>
+        <div class="field-group">
+          <label class="field-label">ESTADIO</label>
+          <input type="text" name="stadium" class="field-input" placeholder="SoFi Stadium">
+        </div>
+      </div>
+      <div class="field-group" style="flex-direction:row;gap:20px;align-items:center">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="double_points" style="accent-color:var(--secondary)">
+          <span class="field-label" style="margin:0">🇪🇸 DOBLE PUNTOS (Grupo España)</span>
+        </label>
+        <div class="field-group" style="flex:0;min-width:120px">
+          <label class="field-label">Nº PARTIDO</label>
+          <input type="number" name="match_number" class="field-input" value="0" min="0">
+        </div>
+      </div>
+      <button type="submit" class="btn-pixel">➕ AÑADIR PARTIDO</button>
+    </form>
+  </div>
+
+  <!-- MATCH LIST -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">{{ matches|length }} PARTIDOS</div>
+    {% if matches %}
+    <div class="admin-match-list">
+      {% for match in matches %}
+      <div class="admin-match-row {% if match.result_entered %}done{% endif %}">
+        <div class="amr-info">
+          <span class="match-phase">{{ match.display_phase }}</span>
+          <span class="match-date">{{ match.match_date.strftime('%d/%m %H:%M') }}</span>
+          {% if match.double_points %}<span class="double-tag">×2</span>{% endif %}
+        </div>
+        <div class="amr-teams">
+          {{ flag(match.team1) }} {{ match.team1.name }}
+          {% if match.result_entered %}
+          <span class="pixel-text" style="color:var(--primary)">{{ match.goals1 }}-{{ match.goals2 }}</span>
+          {% else %}
+          <span style="color:var(--muted)">vs</span>
+          {% endif %}
+          {{ match.team2.name }} {{ flag(match.team2) }}
+        </div>
+        <div class="amr-actions">
+          <form method="POST" style="display:inline">
+            <input type="hidden" name="action" value="toggle_lock">
+            <input type="hidden" name="match_id" value="{{ match.id }}">
+            <button type="submit" class="btn-pixel btn-xs {% if match.is_locked %}btn-locked{% endif %}">
+              {{ '🔒' if match.is_locked else '🔓' }}
+            </button>
+          </form>
+          <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar partido?')">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="match_id" value="{{ match.id }}">
+            <button type="submit" class="btn-pixel btn-xs btn-danger">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">Sin partidos. Añade el primero.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
