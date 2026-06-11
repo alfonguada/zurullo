@@ -162,6 +162,7 @@ class TournamentSettings(db.Model):
     runner_up_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
     top_scorer_name = db.Column(db.String(100), default='')
     prize_pool = db.Column(db.Float, default=0.0)
+    last_sync = db.Column(db.DateTime)
 
     champion_team = db.relationship('Team', foreign_keys=[champion_id])
     runner_up_team = db.relationship('Team', foreign_keys=[runner_up_id])

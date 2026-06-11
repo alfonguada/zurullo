@@ -25,6 +25,31 @@
     </div>
   </div>
 
+  <!-- Worker status -->
+  <div class="settings-card" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="pixel-text" style="font-size:.45rem;color:var(--muted);margin-bottom:6px">WORKER AUTO-SYNC</div>
+        {% if last_sync %}
+          {% set diff = (now - last_sync).total_seconds() | int %}
+          {% if diff < 120 %}
+          <span style="color:var(--primary);font-weight:700">● ACTIVO</span>
+          <span style="color:var(--muted);font-size:.8rem;margin-left:8px">último sync hace {{ diff }}s</span>
+          {% elif diff < 600 %}
+          <span style="color:var(--accent);font-weight:700">● RECIENTE</span>
+          <span style="color:var(--muted);font-size:.8rem;margin-left:8px">hace {{ (diff // 60) }}min</span>
+          {% else %}
+          <span style="color:var(--secondary);font-weight:700">● SIN ACTIVIDAD</span>
+          <span style="color:var(--muted);font-size:.8rem;margin-left:8px">hace {{ (diff // 60) }}min — ¿worker corriendo?</span>
+          {% endif %}
+        {% else %}
+        <span style="color:var(--muted)">● Sin datos — arranca el worker en PA</span>
+        {% endif %}
+      </div>
+      <a href="{{ url_for('api_sync', token='zurullo-sync-2026') }}" class="btn-pixel btn-sm" target="_blank">⟳ SYNC MANUAL</a>
+    </div>
+  </div>
+
   <div class="admin-menu-grid">
     <a href="{{ url_for('admin_results') }}" class="admin-menu-card card-pink">
       <div class="amenu-icon">⚽</div>

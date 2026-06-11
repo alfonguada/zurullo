@@ -475,11 +475,14 @@ def match_predictions(match_id):
 @login_required
 @admin_required
 def admin_dashboard():
+    settings = TournamentSettings.query.first()
     return render_template('admin/dashboard.html',
                            total_users=User.query.count(),
                            total_matches=Match.query.count(),
                            pending=Match.query.filter(Match.is_locked == True, Match.goals1.is_(None)).count(),
-                           prize_pool=(TournamentSettings.query.first() or TournamentSettings()).prize_pool)
+                           prize_pool=settings.prize_pool if settings else 0,
+                           last_sync=settings.last_sync if settings else None,
+                           now=datetime.utcnow())
 
 
 @app.route('/admin/matches', methods=['GET', 'POST'])
