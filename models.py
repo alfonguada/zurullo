@@ -5,6 +5,11 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
+# Monedas que otorga cada porra según los puntos conseguidos.
+# 25 por acertar el resultado (1/X/2), 50 por el marcador exacto. En partidos
+# dobles los puntos se duplican (2 y 6), por lo que las monedas también: 50 y 100.
+COINS_BY_POINTS = {1: 25, 2: 50, 3: 50, 6: 100}
+
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -64,8 +69,17 @@ class User(UserMixin, db.Model):
         return self.match_points + self.bonus_points + self.worst_points
 
     @property
+    def coins_earned(self):
+        """Monedas ganadas en porras: 25 por resultado, 50 por exacto (x2 en dobles)."""
+        rows = db.session.query(Prediction.points_earned).filter(
+            Prediction.user_id == self.id,
+            Prediction.points_earned.isnot(None)
+        ).all()
+        return sum(COINS_BY_POINTS.get(pts, 0) for (pts,) in rows)
+
+    @property
     def coins(self):
-        return max(0, self.total_points - (self.coins_spent or 0))
+        return max(0, self.coins_earned - (self.coins_spent or 0))
 
     @property
     def exact_scores(self):
