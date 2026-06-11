@@ -5,37 +5,33 @@
 
   <!-- CABECERA -->
   <div class="page-header" style="margin-bottom:12px">
-    <h1 class="pixel-text glow-yellow" style="font-size:.8rem">📦 ÁLBUM</h1>
-    <a href="{{ url_for('my_packs') }}" class="btn btn-sm btn-accent" style="position:relative">
-      🎁 SOBRES
-      {% if pending_packs > 0 %}
-      <span class="nav-badge">{{ pending_packs }}</span>
-      {% endif %}
+    <h1 class="pixel-text glow-yellow" style="font-size:.75rem">📦 ÁLBUM</h1>
+    <a href="{{ url_for('my_packs') }}" class="btn btn-sm" style="background:var(--accent);color:#000;border-radius:8px;padding:8px 14px;font-weight:800;text-decoration:none;font-size:.8rem">
+      🎁 SOBRES {% if pending_packs > 0 %}<span class="nav-badge">{{ pending_packs }}</span>{% endif %}
     </a>
   </div>
 
   <!-- STATS -->
   <div class="collection-header">
     <div class="collection-stats">
-      <span class="collection-total">{{ owned }}<span style="color:var(--muted);font-size:.9rem"> / {{ total }}</span></span>
-      <span class="collection-pct">cartas · {{ (owned / total * 100)|int if total else 0 }}% completado</span>
+      <span class="collection-total">{{ owned }}<span style="color:var(--muted);font-size:.85rem"> / {{ total }}</span></span>
+      <span class="collection-pct">· {{ (owned / total * 100)|int if total else 0 }}% completado</span>
     </div>
     <div class="collection-bar">
       <div class="collection-fill" style="width:{{ (owned / total * 100)|int if total else 0 }}%"></div>
     </div>
-
     <!-- Resumen por rareza -->
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
-      {% for r, info in rarity_counts.items() %}
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px">
+      {% set rarity_cfg = [
+        ('legendary', '#ffaa00', '⭐'),
+        ('epic',      '#c840ff', '🔥'),
+        ('rare',      '#00b4ff', '💠'),
+        ('common',    '#7090c8', '⚽'),
+      ] %}
+      {% for r, color, icon in rarity_cfg %}
       <div style="display:flex;align-items:center;gap:5px;font-size:.72rem">
-        <span style="
-          color:{% if r=='legendary' %}var(--accent){% elif r=='epic' %}var(--purple){% elif r=='rare' %}var(--blue){% else %}#7080b8{% endif %};
-          font-weight:900
-        ">
-          {% if r=='legendary' %}⭐{% elif r=='epic' %}🔥{% elif r=='rare' %}💠{% else %}⚽{% endif %}
-          {{ r|upper }}
-        </span>
-        <span style="color:var(--text2)">{{ info.owned }}/{{ info.total }}</span>
+        <span style="color:{{ color }};font-weight:900">{{ icon }} {{ r|upper }}</span>
+        <span style="color:var(--text2)">{{ rarity_counts[r].owned }}/{{ rarity_counts[r].total }}</span>
       </div>
       {% endfor %}
     </div>
@@ -43,26 +39,16 @@
 
   <!-- FILTROS POR RAREZA -->
   <div class="rarity-filters">
-    <a href="{{ url_for('collection') }}"
-       class="rarity-btn {% if rarity == 'all' %}active-all{% endif %}">
+    <a href="{{ url_for('collection') }}" class="rarity-btn {% if rarity=='all' %}active-all{% endif %}">
       TODAS <span class="rarity-count">{{ total }}</span>
     </a>
-    <a href="{{ url_for('collection', rarity='legendary') }}"
-       class="rarity-btn {% if rarity == 'legendary' %}active-legendary{% endif %}" style="border-color:var(--accent);color:var(--accent)">
-      ⭐ LEGEND <span class="rarity-count">{{ rarity_counts.legendary.owned }}/{{ rarity_counts.legendary.total }}</span>
+    {% for r, color, icon in rarity_cfg %}
+    <a href="{{ url_for('collection', rarity=r) }}"
+       class="rarity-btn active-{{ r if rarity==r else '' }}"
+       style="border-color:{{ color }};color:{{ color }}">
+      {{ icon }} {{ r|upper }} <span class="rarity-count">{{ rarity_counts[r].owned }}/{{ rarity_counts[r].total }}</span>
     </a>
-    <a href="{{ url_for('collection', rarity='epic') }}"
-       class="rarity-btn {% if rarity == 'epic' %}active-epic{% endif %}" style="border-color:var(--purple);color:var(--purple)">
-      🔥 ÉPICO <span class="rarity-count">{{ rarity_counts.epic.owned }}/{{ rarity_counts.epic.total }}</span>
-    </a>
-    <a href="{{ url_for('collection', rarity='rare') }}"
-       class="rarity-btn {% if rarity == 'rare' %}active-rare{% endif %}" style="border-color:var(--blue);color:var(--blue)">
-      💠 RARO <span class="rarity-count">{{ rarity_counts.rare.owned }}/{{ rarity_counts.rare.total }}</span>
-    </a>
-    <a href="{{ url_for('collection', rarity='common') }}"
-       class="rarity-btn {% if rarity == 'common' %}active-common{% endif %}" style="border-color:#7080b8;color:#7080b8">
-      ⚽ COMÚN <span class="rarity-count">{{ rarity_counts.common.owned }}/{{ rarity_counts.common.total }}</span>
-    </a>
+    {% endfor %}
   </div>
 
   <!-- GRID DE CROMOS -->
@@ -76,38 +62,53 @@
   <div class="cards-grid">
     {% for player in players %}
     {% set uc = owned_map.get(player.id) %}
-    <div class="card-item card-{{ player.rarity }} {% if not uc %}card-missing{% endif %}"
+    {% set rarity = player.rarity %}
+    <div class="card-item card-{{ rarity }} {% if not uc %}card-missing{% endif %}"
          {% if uc %}title="{{ player.name }}{% if player.team %} · {{ player.team.name }}{% endif %} · {{ player.position }}"{% endif %}>
 
-      <!-- rarity pip -->
+      <!-- Rarity pip -->
       <span class="card-rarity-pip">
-        {%- if player.rarity == 'legendary' %}L{% elif player.rarity == 'epic' %}E{% elif player.rarity == 'rare' %}R{% else %}C{% endif -%}
+        {%- if rarity=='legendary' %}L{% elif rarity=='epic' %}E{% elif rarity=='rare' %}R{% else %}C{% endif -%}
       </span>
 
-      <!-- duplicate count -->
+      <!-- Duplicate badge -->
       {% if uc and uc.duplicate_count > 0 %}
       <span class="card-dup">×{{ uc.duplicate_count + 1 }}</span>
       {% endif %}
 
-      <!-- icon -->
-      <div class="card-icon">{{ player.icon if uc else '?' }}</div>
-
-      <!-- name -->
-      <div class="card-name {% if not uc %}card-unkn{% endif %}">
-        {{ player.name if uc else '???' }}
+      <!-- Photo / fallback -->
+      <div class="card-photo">
+        {% if uc and player.image %}
+        <img src="{{ url_for('static', filename='players/' ~ player.image) }}"
+             alt="{{ player.name }}" loading="lazy">
+        {% else %}
+        <div class="card-photo-fallback">{{ player.icon if uc else '?' }}</div>
+        {% endif %}
       </div>
 
-      <!-- team & position (only if owned) -->
-      {% if uc %}
-      {% if player.card_type == 'special' %}
-      <div class="card-sub">ESPECIAL</div>
-      {% else %}
-      <div class="card-sub">
-        {% if player.team %}{{ player.team.name[:10] }}{% endif %}
+      <!-- Info -->
+      <div class="card-info">
+        <div class="card-name {% if not uc %}card-unkn{% endif %}">
+          {{ player.name if uc else '???' }}
+        </div>
+        {% if uc %}
+        <div class="card-meta">
+          {% if player.card_type == 'special' %}
+            <span class="card-pos" style="font-size:.38rem">ESPECIAL</span>
+          {% else %}
+            <span class="card-pos">{{ player.position }}</span>
+            {% if player.team %}
+              {% if player.team.flag_img %}
+              <img src="{{ url_for('static', filename='flags/' ~ player.team.flag_img) }}"
+                   class="card-flag-sm" alt="{{ player.team.name }}">
+              {% else %}
+              <span class="card-flag-emoji-sm">{{ player.team.flag_emoji }}</span>
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
-      <div class="card-pos">{{ player.position }}</div>
-      {% endif %}
-      {% endif %}
 
     </div>
     {% endfor %}

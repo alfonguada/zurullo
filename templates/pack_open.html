@@ -3,62 +3,73 @@
 
 {% block head %}
 <style>
-  /* Fondo oscuro para máximo dramatismo */
-  .main-content { background: transparent; }
   body { background: #06060f; }
   .scanlines { display: none; }
+  .main-content { background: transparent; }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Datos JSON para el JS -->
 <script id="cards-data" type="application/json">{{ cards | tojson }}</script>
 
 <div class="pack-open-wrap">
 
-  <!-- Indicador de progreso (dots) -->
+  <!-- Dots de progreso -->
   <div class="pack-progress" id="pack-progress">
-    {% for i in range(5) %}
-    <div class="pack-dot" id="dot-{{ i }}"></div>
-    {% endfor %}
+    {% for i in range(5) %}<div class="pack-dot" id="dot-{{ i }}"></div>{% endfor %}
   </div>
 
-  <!-- Carta con flip -->
+  <!-- Carta flip -->
   <div class="reveal-card" id="reveal-card">
     <div class="reveal-inner" id="reveal-inner">
-      <!-- FRENTE (antes de revelar) -->
+
+      <!-- FRENTE -->
       <div class="reveal-front">
         <div class="reveal-front-logo">📦</div>
         <div class="reveal-front-text">ZURULLO<br>WORLD CUP<br>2026</div>
-        <div style="font-size:.6rem;color:var(--muted);margin-top:8px">TAP PARA REVELAR</div>
+        <div class="reveal-front-tap">👆 toca para revelar</div>
       </div>
-      <!-- REVERSO (la carta) -->
+
+      <!-- REVERSO -->
       <div class="reveal-back" id="reveal-back">
-        <span class="reveal-rarity" id="reveal-rarity"></span>
-        <div class="reveal-big-icon" id="reveal-icon"></div>
-        <div class="reveal-name" id="reveal-name"></div>
-        <div class="reveal-pos"  id="reveal-pos"></div>
-        <div class="reveal-team" id="reveal-team"></div>
-        <div class="reveal-new"  id="reveal-new" style="display:none">✨ ¡NUEVA!</div>
+        <!-- Partículas legendarias (se crean por JS) -->
+        <div class="legendary-particles" id="lg-particles" style="position:absolute;inset:0;pointer-events:none;z-index:20"></div>
+
+        <!-- Foto del jugador -->
+        <div class="reveal-photo-wrap">
+          <img id="reveal-photo" src="" alt="" style="display:none">
+          <div id="reveal-photo-fallback" class="reveal-photo-fallback"></div>
+        </div>
+
+        <!-- Info -->
+        <div class="reveal-info">
+          <span class="reveal-rarity" id="reveal-rarity"></span>
+          <div class="reveal-name"    id="reveal-name"></div>
+          <div class="reveal-meta">
+            <span class="reveal-pos"         id="reveal-pos"></span>
+            <img  id="reveal-flag-img"        class="reveal-flag-img"   src="" alt="" style="display:none">
+            <span id="reveal-flag-emoji"      class="reveal-flag-emoji"               style="display:none"></span>
+          </div>
+          <div class="reveal-new" id="reveal-new" style="display:none">✨ ¡NUEVA!</div>
+        </div>
       </div>
+
     </div>
   </div>
 
-  <!-- Hint tap -->
+  <!-- Hint & botones -->
   <div class="reveal-hint" id="reveal-hint">👆 Toca la carta para revelar</div>
-
-  <!-- Botones de acción -->
   <div class="reveal-actions">
     <button class="reveal-next-btn" id="next-btn">SIGUIENTE →</button>
     <a href="{{ url_for('my_packs') }}" class="reveal-done-btn" id="done-btn">VER MIS SOBRES</a>
   </div>
 
-  <!-- Miniaturas de las 5 cartas reveladas (aparecen al revelar cada una) -->
+  <!-- Mini-strip de las 5 cartas -->
   <div class="pack-results-grid" id="results-grid">
     {% for i in range(5) %}
     <div class="pack-result-mini" id="mini-{{ i }}">
-      <div class="mini-icon">📦</div>
-      <div class="mini-name" style="font-size:.5rem;color:var(--muted)">???</div>
+      <div class="mini-photo">📦</div>
+      <div class="mini-footer" style="text-align:center;color:rgba(255,255,255,.2)">???</div>
     </div>
     {% endfor %}
   </div>
@@ -70,77 +81,127 @@
 <script>
 const CARDS = JSON.parse(document.getElementById('cards-data').textContent);
 let current = 0;
-let flipped = false;
+let isFlipped = false;
 
-const cardEl   = document.getElementById('reveal-card');
-const innerEl  = document.getElementById('reveal-inner');
-const backEl   = document.getElementById('reveal-back');
-const iconEl   = document.getElementById('reveal-icon');
-const nameEl   = document.getElementById('reveal-name');
-const posEl    = document.getElementById('reveal-pos');
-const teamEl   = document.getElementById('reveal-team');
-const newEl    = document.getElementById('reveal-new');
-const rarityEl = document.getElementById('reveal-rarity');
-const hintEl   = document.getElementById('reveal-hint');
-const nextBtn  = document.getElementById('next-btn');
-const doneBtn  = document.getElementById('done-btn');
+const cardEl    = document.getElementById('reveal-card');
+const backEl    = document.getElementById('reveal-back');
+const photoEl   = document.getElementById('reveal-photo');
+const photoFbEl = document.getElementById('reveal-photo-fallback');
+const rarityEl  = document.getElementById('reveal-rarity');
+const nameEl    = document.getElementById('reveal-name');
+const posEl     = document.getElementById('reveal-pos');
+const flagImgEl = document.getElementById('reveal-flag-img');
+const flagEmoEl = document.getElementById('reveal-flag-emoji');
+const newEl     = document.getElementById('reveal-new');
+const hintEl    = document.getElementById('reveal-hint');
+const nextBtn   = document.getElementById('next-btn');
+const doneBtn   = document.getElementById('done-btn');
+const lgParts   = document.getElementById('lg-particles');
 
 const RARITY_LABELS = {
   common: 'COMÚN', rare: 'RARO', epic: 'ÉPICO', legendary: '★ LEGENDARIO ★'
 };
 
-function loadCard(index) {
-  const c = CARDS[index];
-  // Populate back face
+function loadCard(idx) {
+  const c = CARDS[idx];
+
+  // Back face rarity class
   backEl.className = `reveal-back rc-${c.rarity}`;
-  rarityEl.className = `reveal-rarity rc-${c.rarity}`;
+
+  // Photo
+  if (c.image) {
+    photoEl.src = `/static/players/${c.image}`;
+    photoEl.style.display = 'block';
+    photoFbEl.style.display = 'none';
+  } else {
+    photoEl.style.display = 'none';
+    photoFbEl.style.display = 'flex';
+    photoFbEl.textContent = c.icon;
+  }
+
+  // Rarity label
   rarityEl.textContent = RARITY_LABELS[c.rarity] || c.rarity.toUpperCase();
-  iconEl.textContent  = c.icon;
-  nameEl.textContent  = c.name;
-  posEl.textContent   = c.card_type === 'special' ? 'ESPECIAL' : c.position;
-  teamEl.textContent  = c.team || '';
+  rarityEl.className   = `reveal-rarity rc-${c.rarity}`;
+
+  // Name & position
+  nameEl.textContent = c.name;
+  posEl.textContent  = c.card_type === 'special' ? 'ESPECIAL' : c.position;
+
+  // Flag
+  if (c.flag_img) {
+    flagImgEl.src = `/static/flags/${c.flag_img}`;
+    flagImgEl.style.display = 'inline';
+    flagEmoEl.style.display = 'none';
+  } else if (c.flag_emoji) {
+    flagEmoEl.textContent = c.flag_emoji;
+    flagEmoEl.style.display = 'inline';
+    flagImgEl.style.display = 'none';
+  } else {
+    flagImgEl.style.display = 'none';
+    flagEmoEl.style.display = 'none';
+  }
+
+  // NEW badge
   newEl.style.display = c.is_new ? 'block' : 'none';
 
   // Reset flip state
-  flipped = false;
+  isFlipped = false;
   cardEl.classList.remove('flipped', 'legendary-burst');
+  lgParts.innerHTML = '';
   hintEl.style.display = 'block';
   nextBtn.classList.remove('visible');
   doneBtn.classList.remove('visible');
 
-  // Update dots
+  // Dots
   document.querySelectorAll('.pack-dot').forEach((d, i) => {
     d.className = 'pack-dot' +
-      (i < index  ? ' done' : '') +
-      (i === index ? ' current' : '');
+      (i < idx  ? ' done'    : '') +
+      (i === idx ? ' current' : '');
   });
 }
 
-function revealCard() {
-  if (flipped) return;
-  flipped = true;
+function spawnParticles() {
+  lgParts.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const s = document.createElement('span');
+    lgParts.appendChild(s);
+  }
+  // Auto-remove after animation
+  setTimeout(() => { lgParts.innerHTML = ''; }, 800);
+}
+
+function flipCard() {
+  if (isFlipped) return;
+  isFlipped = true;
   cardEl.classList.add('flipped');
   hintEl.style.display = 'none';
 
   const c = CARDS[current];
 
-  // Legendary special burst
   if (c.rarity === 'legendary') {
-    setTimeout(() => cardEl.classList.add('legendary-burst'), 580);
+    setTimeout(() => {
+      cardEl.classList.add('legendary-burst');
+      spawnParticles();
+    }, 600);
   }
 
   // Update mini thumbnail
   const mini = document.getElementById(`mini-${current}`);
   if (mini) {
     mini.className = `pack-result-mini rc-${c.rarity} revealed`;
-    mini.innerHTML = `<div class="mini-icon">${c.icon}</div><div class="mini-name">${c.name}</div>`;
+    const photoHtml = c.image
+      ? `<img src="/static/players/${c.image}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:top">`
+      : c.icon;
+    mini.innerHTML = `
+      <div class="mini-photo">${photoHtml}</div>
+      <div class="mini-footer">${c.name}</div>
+    `;
   }
 
   // Mark dot done
   const dot = document.getElementById(`dot-${current}`);
-  if (dot) { dot.className = 'pack-dot done'; }
+  if (dot) dot.className = 'pack-dot done';
 
-  // Show appropriate action button
   if (current < CARDS.length - 1) {
     nextBtn.classList.add('visible');
   } else {
@@ -148,15 +209,9 @@ function revealCard() {
   }
 }
 
-function goNext() {
-  current++;
-  loadCard(current);
-}
+cardEl.addEventListener('click', flipCard);
+nextBtn.addEventListener('click', () => { current++; loadCard(current); });
 
-cardEl.addEventListener('click', revealCard);
-nextBtn.addEventListener('click', goNext);
-
-// Start
 loadCard(0);
 </script>
 {% endblock %}

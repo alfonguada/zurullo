@@ -1027,6 +1027,9 @@ def open_pack(pack_id):
             'position': player.position,
             'card_type': player.card_type,
             'team': player.team.name if player.team else '',
+            'flag_img': player.team.flag_img if player.team else '',
+            'flag_emoji': player.team.flag_emoji if player.team else '',
+            'image': player.image or '',
             'is_new': is_new,
         })
 
