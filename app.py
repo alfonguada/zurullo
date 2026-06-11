@@ -74,8 +74,11 @@ def admin_required(f):
 @app.context_processor
 def inject_pack_count():
     if current_user.is_authenticated:
-        count = UserPack.query.filter_by(user_id=current_user.id, opened=False).count()
-        return {'pending_packs': count}
+        try:
+            count = UserPack.query.filter_by(user_id=current_user.id, opened=False).count()
+            return {'pending_packs': count}
+        except Exception:
+            pass
     return {'pending_packs': 0}
 
 

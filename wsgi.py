@@ -10,7 +10,8 @@ if APP_DIR not in sys.path:
 os.chdir(APP_DIR)
 
 from app import app as application
-from models import db, TournamentSettings, Player, UserCard, UserPack
+# Importar todos los modelos explícitamente para que db.create_all() los registre
+from models import db, TournamentSettings, Player, UserCard, UserPack  # noqa: F401
 
 
 def run_migrations():
