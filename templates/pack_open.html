@@ -12,7 +12,10 @@
 {% block content %}
 <script id="cards-data" type="application/json">{{ cards | tojson }}</script>
 
-<div class="pack-open-wrap">
+<!-- Flash overlay para legendary/ultra -->
+<div class="reveal-flash" id="reveal-flash"></div>
+
+<div class="pack-open-wrap" id="open-wrap">
 
   <!-- Dots de progreso -->
   <div class="pack-progress" id="pack-progress">
@@ -101,7 +104,8 @@ const doneBtn   = document.getElementById('done-btn');
 const lgParts   = document.getElementById('lg-particles');
 
 const RARITY_LABELS = {
-  common: 'COMÚN', rare: 'RARO', epic: 'ÉPICO', legendary: '★ LEGENDARIO ★'
+  common: 'COMÚN', rare: 'RARO', epic: 'ÉPICO',
+  legendary: '★ LEGENDARIO ★', ultra: '✦ ULTRA ESPECIAL ✦'
 };
 
 function loadCard(idx) {
@@ -182,10 +186,24 @@ function flipCard() {
 
   const c = CARDS[current];
 
-  if (c.rarity === 'legendary') {
+  const flashEl  = document.getElementById('reveal-flash');
+  const openWrap = document.getElementById('open-wrap');
+
+  if (c.rarity === 'ultra') {
+    setTimeout(() => {
+      cardEl.classList.add('ultra-burst');
+      spawnParticles();
+      flashEl.className = 'reveal-flash flash-ult active';
+      openWrap.classList.add('shake');
+      setTimeout(() => { openWrap.classList.remove('shake'); }, 500);
+    }, 600);
+  } else if (c.rarity === 'legendary') {
     setTimeout(() => {
       cardEl.classList.add('legendary-burst');
       spawnParticles();
+      flashEl.className = 'reveal-flash flash-lg active';
+      openWrap.classList.add('shake');
+      setTimeout(() => { openWrap.classList.remove('shake'); }, 450);
     }, 600);
   }
 

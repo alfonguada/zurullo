@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Álbum Completo — Admin{% endblock %}
+{% block content %}
+<div class="page-container">
+
+  <div class="page-header" style="margin-bottom:16px">
+    <h1 class="pixel-text glow-pink" style="font-size:.7rem">📦 CATÁLOGO COMPLETO</h1>
+    <a href="{{ url_for('admin_dashboard') }}" style="color:var(--muted);font-size:.78rem;text-decoration:none">← Admin</a>
+  </div>
+
+  <!-- Stats por rareza -->
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px">
+    {% set rarity_cfg = [
+      ('ultra',     '#ffd700', '✦'),
+      ('legendary', '#ffaa00', '⭐'),
+      ('epic',      '#c840ff', '🔥'),
+      ('rare',      '#00b4ff', '💠'),
+      ('common',    '#7090c8', '⚽'),
+    ] %}
+    {% for r, color, icon in rarity_cfg %}
+    {% set total_r = rarity_stats.get(r, {}).get('total', 0) %}
+    {% set owned_r = namespace(n=0) %}
+    <div style="background:var(--surface);border:1.5px solid {{ color }};border-radius:8px;padding:8px 14px;text-align:center">
+      <div style="font-size:.8rem">{{ icon }}</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:.42rem;color:{{ color }};margin:3px 0">{{ r|upper }}</div>
+      <div style="font-size:.85rem;font-weight:700;color:var(--text)">{{ total_r }}</div>
+    </div>
+    {% endfor %}
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">
+      <div style="font-size:.8rem">🃏</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:.42rem;color:var(--muted);margin:3px 0">TOTAL</div>
+      <div style="font-size:.85rem;font-weight:700;color:var(--text)">{{ players|length }}</div>
+    </div>
+  </div>
+
+  <!-- Grid de todas las cartas con stats de posesión -->
+  <div class="cards-grid">
+    {% for player in players %}
+    {% set owned_count = counts.get(player.id, 0) %}
+    {% set pct = (owned_count / total_users * 100)|int if total_users else 0 %}
+    <div class="card-item card-{{ player.rarity }}" style="cursor:default" title="{{ player.name }} — {{ owned_count }}/{{ total_users }} jugadores ({{ pct }}%)">
+      <span class="card-rarity-pip">
+        {%- if player.rarity=='ultra' %}U{% elif player.rarity=='legendary' %}L{% elif player.rarity=='epic' %}E{% elif player.rarity=='rare' %}R{% else %}C{% endif -%}
+      </span>
+      {% if owned_count > 0 %}
+      <span class="card-dup" style="font-size:.4rem">{{ owned_count }}/{{ total_users }}</span>
+      {% endif %}
+
+      <div class="card-photo">
+        {% if player.image %}
+          {% if player.image.startswith('http') %}
+          <img src="{{ player.image }}" alt="" loading="lazy">
+          {% else %}
+          <img src="{{ url_for('static', filename='players/' ~ player.image) }}" alt="" loading="lazy">
+          {% endif %}
+        {% else %}
+        <div class="card-photo-fallback">{{ player.icon }}</div>
+        {% endif %}
+      </div>
+
+      <div class="card-info">
+        <div class="card-name" style="{% if owned_count==0 %}color:rgba(255,255,255,.35){% endif %}">
+          {{ player.name[:18] }}
+        </div>
+        <div class="card-meta">
+          <span class="card-pos">{{ player.position }}</span>
+          {% if player.team and player.team.flag_img %}
+          <img src="{{ url_for('static', filename='flags/' ~ player.team.flag_img) }}" class="card-flag-sm" alt="">
+          {% elif player.team %}
+          <span class="card-flag-emoji-sm">{{ player.team.flag_emoji }}</span>
+          {% endif %}
+        </div>
+        <!-- Ownership bar -->
+        {% if total_users > 0 %}
+        <div style="height:3px;background:var(--border);border-radius:2px;margin-top:3px;overflow:hidden">
+          <div style="height:100%;width:{{ pct }}%;background:var(--c, var(--primary));border-radius:2px"></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

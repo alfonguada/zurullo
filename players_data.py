@@ -8,6 +8,20 @@ Posiciones: DEL · EXT · MED · DEF · POR
 PLAYERS = [
 
     # ══════════════════════════════════════════════════════════
+    # ULTRA — EDICIONES ESPECIALES (tipo Adrenalyn / Balón de Oro)
+    # ══════════════════════════════════════════════════════════
+    ('Messi ✦ BALÓN DE ORO',       'Argentina',    'DEL', 'ultra', '🐐'),
+    ('Ronaldo ✦ UCL KING',         'Portugal',     'DEL', 'ultra', '🔴'),
+    ('Mbappé ✦ CHAMPIONS',         'Francia',      'DEL', 'ultra', '⚡'),
+    ('Haaland ✦ GOLDEN BOOT',      'Noruega',      'DEL', 'ultra', '💥'),
+    ('Bellingham ✦ RISING STAR',   'Inglaterra',   'MED', 'ultra', '🎯'),
+    ('Vinicius ✦ BALÓN DE ORO',    'Brasil',       'EXT', 'ultra', '🌟'),
+    ('Yamal ✦ MEJOR JOVEN',        'España',       'EXT', 'ultra', '✨'),
+    ('De Bruyne ✦ TOTY',           'Bélgica',      'MED', 'ultra', '🎼'),
+    ('Pedri ✦ GOLDEN BOY',         'España',       'MED', 'ultra', '🎪'),
+    ('Rodri ✦ BALÓN DE ORO',       'España',       'MED', 'ultra', '🧠'),
+
+    # ══════════════════════════════════════════════════════════
     # TIER 1 — ESPAÑA (18)
     # ══════════════════════════════════════════════════════════
     ('Lamine Yamal',        'España', 'EXT', 'legendary', '✨'),

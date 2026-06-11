@@ -258,21 +258,21 @@ PACK_TYPES = {
         'name': 'Estándar',   'icon': '📦', 'cost': 25,  'cards': 5,
         'color': '#7090c8',
         'desc': '5 cartas · probabilidades base',
-        'weights': {'common': 65, 'rare': 25, 'epic': 8,  'legendary': 2},
+        'weights': {'common': 65, 'rare': 25, 'epic': 8, 'legendary': 2, 'ultra': 0},
         'guaranteed': None,
     },
     'premium': {
         'name': 'Premium',    'icon': '🎁', 'cost': 50,  'cards': 7,
         'color': '#00b4ff',
-        'desc': '7 cartas · al menos 1 rara garantizada',
-        'weights': {'common': 45, 'rare': 35, 'epic': 16, 'legendary': 4},
+        'desc': '7 cartas · rara garantizada · posibilidad ultra',
+        'weights': {'common': 44, 'rare': 34, 'epic': 16, 'legendary': 5, 'ultra': 1},
         'guaranteed': 'rare',
     },
     'elite': {
         'name': 'Élite',      'icon': '👑', 'cost': 100, 'cards': 10,
         'color': '#ffaa00',
-        'desc': '10 cartas · épica garantizada',
-        'weights': {'common': 25, 'rare': 35, 'epic': 28, 'legendary': 12},
+        'desc': '10 cartas · épica garantizada · ultra posible',
+        'weights': {'common': 24, 'rare': 33, 'epic': 27, 'legendary': 13, 'ultra': 3},
         'guaranteed': 'epic',
     },
 }
@@ -327,8 +327,8 @@ def draw_cards(n=5, rarity_weights=None, guaranteed=None):
             drawn.append(card)
 
     if guaranteed and drawn:
-        _rarity_rank = {'legendary': 0, 'epic': 1, 'rare': 2, 'common': 3}
-        g_rank = _rarity_rank.get(guaranteed, 3)
+        _rarity_rank = {'ultra': 0, 'legendary': 1, 'epic': 2, 'rare': 3, 'common': 4}
+        g_rank = _rarity_rank.get(guaranteed, 4)
         has_guarantee = any(_rarity_rank.get(c.rarity, 3) <= g_rank for c in drawn)
         if not has_guarantee:
             drawn_set = {c.id for c in drawn}
@@ -768,6 +768,33 @@ def save_extra_bonus():
     db.session.commit()
     flash('¡Bonus extra guardado!', 'success')
     return redirect(url_for('profile'))
+
+
+@app.route('/admin/album')
+@login_required
+@admin_required
+def admin_album():
+    """Vista admin del catálogo completo con estadísticas de colección."""
+    from players_data import seed_players
+    seed_players(db, Player, Team)
+    rarity_order = db.case(
+        (Player.rarity == 'ultra', 0), (Player.rarity == 'legendary', 1),
+        (Player.rarity == 'epic', 2),  (Player.rarity == 'rare', 3),
+        else_=4
+    )
+    all_players = Player.query.order_by(rarity_order, Player.name).all()
+    total_users = User.query.count()
+    # ownership count per player
+    from sqlalchemy import func
+    counts = dict(db.session.query(UserCard.player_id, func.count(UserCard.user_id))
+                  .group_by(UserCard.player_id).all())
+    rarity_stats = {}
+    for r in ('ultra', 'legendary', 'epic', 'rare', 'common'):
+        pl = [p for p in all_players if p.rarity == r]
+        rarity_stats[r] = {'total': len(pl)}
+    return render_template('admin/album.html', players=all_players,
+                           counts=counts, total_users=total_users,
+                           rarity_stats=rarity_stats)
 
 
 @app.route('/admin/daily-bonus', methods=['POST'])
