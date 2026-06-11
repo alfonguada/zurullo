@@ -2,7 +2,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from markupsafe import Markup
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 import os
 
@@ -24,6 +24,22 @@ login_manager.login_message = 'Inicia sesión para continuar.'
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+@app.before_request
+def auto_lock_started_matches():
+    """Bloquea automáticamente partidos cuya hora de inicio ya pasó."""
+    if not current_user.is_authenticated:
+        return
+    now = datetime.utcnow()
+    started = Match.query.filter(
+        Match.is_locked == False,
+        Match.match_date <= now
+    ).all()
+    if started:
+        for m in started:
+            m.is_locked = True
+        db.session.commit()
 
 
 @app.template_global()
@@ -346,6 +362,91 @@ def profile():
                 flash('¡Contraseña cambiada!', 'success')
         return redirect(url_for('profile'))
     return render_template('profile.html', teams=teams, settings=settings, bonus=bonus, worst=worst)
+
+
+@app.route('/api/sync')
+def api_sync():
+    """
+    Actualiza resultados desde ESPN y recalcula puntos.
+    Llamar con ?token=TU_TOKEN desde una tarea programada o cron-job.org.
+    """
+    SYNC_TOKEN = os.environ.get('SYNC_TOKEN', 'zurullo-sync-2026')
+    if request.args.get('token', '') != SYNC_TOKEN:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        import requests as req
+        now = datetime.utcnow()
+        total_updated = 0
+
+        for delta in [-1, 0, 1]:  # ayer, hoy, mañana
+            day = now + timedelta(days=delta)
+            url = (f'https://site.api.espn.com/apis/site/v2/sports/soccer'
+                   f'/fifa.world/scoreboard?dates={day.strftime("%Y%m%d")}&limit=30')
+            try:
+                r = req.get(url, timeout=10,
+                            headers={'User-Agent': 'Mozilla/5.0'})
+                events = r.json().get('events', [])
+            except Exception:
+                continue
+
+            for ev in events:
+                try:
+                    comp = ev['competitions'][0]
+                    competitors = comp.get('competitors', [])
+                    if len(competitors) < 2:
+                        continue
+                    home = next((c for c in competitors if c.get('homeAway') == 'home'), competitors[0])
+                    away = next((c for c in competitors if c.get('homeAway') == 'away'), competitors[1])
+
+                    status = comp.get('status', {}).get('type', {})
+                    if not status.get('completed', False):
+                        continue
+
+                    score1 = int(home.get('score', ''))
+                    score2 = int(away.get('score', ''))
+
+                    # Buscar partido en BD por equipos y fecha
+                    from fetch_schedule import TEAM_MAP
+                    n1 = TEAM_MAP.get(home['team']['displayName'], home['team']['displayName'])
+                    n2 = TEAM_MAP.get(away['team']['displayName'], away['team']['displayName'])
+                    t1 = Team.query.filter_by(name=n1).first()
+                    t2 = Team.query.filter_by(name=n2).first()
+                    if not t1 or not t2:
+                        continue
+
+                    for fmt in ('%Y-%m-%dT%H:%MZ', '%Y-%m-%dT%H:%M:%SZ'):
+                        try:
+                            dt = datetime.strptime(ev['date'], fmt)
+                            break
+                        except ValueError:
+                            continue
+
+                    match = Match.query.filter(
+                        Match.team1_id == t1.id,
+                        Match.team2_id == t2.id,
+                        db.func.date(Match.match_date) == dt.date()
+                    ).first()
+
+                    if match and match.goals1 is None:
+                        match.goals1 = score1
+                        match.goals2 = score2
+                        match.is_locked = True
+                        recalc_match(match)
+                        total_updated += 1
+
+                except Exception:
+                    continue
+
+        if total_updated:
+            db.session.commit()
+            recalc_worst_teams()
+
+        return jsonify({'ok': True, 'updated': total_updated,
+                        'ts': now.strftime('%Y-%m-%d %H:%M UTC')})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/match/<int:match_id>/predictions')
