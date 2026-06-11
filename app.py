@@ -346,7 +346,7 @@ def register():
         elif User.query.filter_by(email=email).first():
             flash('Ese email ya está registrado.', 'error')
         else:
-            is_first = User.query.count() == 0
+            is_first = User.query.filter_by(is_admin=True).count() == 0
             user = User(username=username, display_name=username, email=email, is_admin=is_first)
             user.set_password(pw)
             db.session.add(user)

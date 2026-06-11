@@ -32,6 +32,12 @@
     <div class="auth-switch">
       ¿Ya tienes cuenta? <a href="{{ url_for('login') }}">INICIAR SESIÓN</a>
     </div>
+    {% if current_user.is_authenticated %}
+    <div class="auth-switch" style="margin-top:8px;font-size:.7rem;color:var(--muted)">
+      ¿Ves esta página siendo ya un usuario?
+      <a href="{{ url_for('logout') }}" style="color:var(--secondary)">Cerrar sesión primero</a>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
