@@ -64,7 +64,18 @@
     {% set uc = owned_map.get(player.id) %}
     {% set rarity = player.rarity %}
     <div class="card-item card-{{ rarity }} {% if not uc %}card-missing{% endif %}"
-         {% if uc %}title="{{ player.name }}{% if player.team %} · {{ player.team.name }}{% endif %} · {{ player.position }}"{% endif %}>
+         {% if uc %}
+         data-name="{{ player.name }}"
+         data-rarity="{{ rarity }}"
+         data-pos="{{ player.position }}"
+         data-type="{{ player.card_type }}"
+         data-team="{{ player.team.name if player.team else '' }}"
+         data-flag-img="{{ player.team.flag_img if player.team and player.team.flag_img else '' }}"
+         data-flag-emoji="{{ player.team.flag_emoji if player.team and not player.team.flag_img else '' }}"
+         data-image="{{ player.image or '' }}"
+         data-icon="{{ player.icon }}"
+         data-dup="{{ uc.duplicate_count }}"
+         {% endif %}>
 
       <!-- Rarity pip -->
       <span class="card-rarity-pip">
@@ -120,4 +131,103 @@
   {% endif %}
 
 </div>
+
+<!-- MODAL DETALLE DE CARTA -->
+<div class="card-modal-overlay" id="card-modal-overlay">
+  <div class="card-modal" id="card-modal">
+    <button class="card-modal-close" id="card-modal-close" aria-label="Cerrar">✕</button>
+    <span class="card-modal-pip" id="modal-pip"></span>
+
+    <div class="card-modal-photo">
+      <img id="modal-photo" src="" alt="" style="display:none">
+      <div id="modal-photo-fb" class="card-modal-photo-fb"></div>
+    </div>
+
+    <div class="card-modal-info">
+      <span class="card-modal-rarity" id="modal-rarity"></span>
+      <div class="card-modal-name"    id="modal-name"></div>
+      <div class="card-modal-meta">
+        <span class="card-modal-pos"  id="modal-pos"></span>
+        <img  id="modal-flag-img"      class="card-modal-flag" src="" alt="" style="display:none">
+        <span id="modal-flag-emoji"                                               style="display:none;font-size:.9rem"></span>
+      </div>
+      <div class="card-modal-team"    id="modal-team"></div>
+      <div class="card-modal-dup"     id="modal-dup"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const RARITY_LABELS = { common:'COMÚN', rare:'RARO', epic:'ÉPICO', legendary:'★ LEGENDARIO ★' };
+const RARITY_PIPS   = { common:'C', rare:'R', epic:'E', legendary:'L' };
+
+const overlay    = document.getElementById('card-modal-overlay');
+const modal      = document.getElementById('card-modal');
+const closeBtn   = document.getElementById('card-modal-close');
+const modalPhoto = document.getElementById('modal-photo');
+const modalFb    = document.getElementById('modal-photo-fb');
+const modalPip   = document.getElementById('modal-pip');
+const modalRar   = document.getElementById('modal-rarity');
+const modalName  = document.getElementById('modal-name');
+const modalPos   = document.getElementById('modal-pos');
+const modalFlImg = document.getElementById('modal-flag-img');
+const modalFlEmo = document.getElementById('modal-flag-emoji');
+const modalTeam  = document.getElementById('modal-team');
+const modalDup   = document.getElementById('modal-dup');
+
+function openModal(el) {
+  const d = el.dataset;
+  const rarity = d.rarity;
+
+  modal.className = `card-modal rc-${rarity}`;
+  modalPip.textContent  = RARITY_PIPS[rarity] || rarity[0].toUpperCase();
+  modalRar.textContent  = RARITY_LABELS[rarity] || rarity.toUpperCase();
+  modalName.textContent = d.name;
+  modalPos.textContent  = d.type === 'special' ? 'ESPECIAL' : d.pos;
+  modalTeam.textContent = d.team || '';
+
+  const dup = parseInt(d.dup) || 0;
+  modalDup.textContent = dup > 0 ? `×${dup + 1} copias` : '';
+
+  if (d.flagImg) {
+    modalFlImg.src = d.flagImg.startsWith('http') ? d.flagImg : `/static/flags/${d.flagImg}`;
+    modalFlImg.style.display = 'inline';
+    modalFlEmo.style.display = 'none';
+  } else if (d.flagEmoji) {
+    modalFlEmo.textContent = d.flagEmoji;
+    modalFlEmo.style.display = 'inline';
+    modalFlImg.style.display = 'none';
+  } else {
+    modalFlImg.style.display = modalFlEmo.style.display = 'none';
+  }
+
+  if (d.image) {
+    modalPhoto.src = d.image.startsWith('http') ? d.image : `/static/players/${d.image}`;
+    modalPhoto.style.display = 'block';
+    modalFb.style.display    = 'none';
+  } else {
+    modalPhoto.style.display = 'none';
+    modalFb.style.display    = 'flex';
+    modalFb.textContent      = d.icon || '⚽';
+  }
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.querySelectorAll('.card-item[data-name]').forEach(el => {
+  el.addEventListener('click', () => openModal(el));
+});
+closeBtn.addEventListener('click', closeModal);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
 {% endblock %}

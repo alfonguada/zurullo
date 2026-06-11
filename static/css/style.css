@@ -1141,3 +1141,140 @@ select.field-input { background-image: url("data:image/svg+xml,%3Csvg xmlns='htt
   .cards-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   .card-photo { height: 112px; }
 }
+
+/* ══════════════════════════════════════════════
+   CARD DETAIL MODAL
+   ══════════════════════════════════════════════ */
+.card-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.78);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.card-modal-overlay.open {
+  opacity: 1; pointer-events: all;
+}
+
+.card-modal {
+  width: 100%; max-width: 320px;
+  border-radius: 20px; overflow: hidden;
+  display: flex; flex-direction: column;
+  transform: scale(.88) translateY(20px);
+  transition: transform .28s cubic-bezier(.2,.8,.3,1);
+  position: relative;
+}
+.card-modal-overlay.open .card-modal {
+  transform: scale(1) translateY(0);
+}
+
+/* Rarity backgrounds (same vars as card-item) */
+.card-modal.rc-common    { background: linear-gradient(165deg,#10102a,#1c1c38); border: 2px solid #525278; }
+.card-modal.rc-rare      { background: linear-gradient(165deg,#001428,#00204a); border: 2px solid #00b4ff; }
+.card-modal.rc-epic      { background: linear-gradient(165deg,#0e0018,#200038); border: 2px solid #c840ff; }
+.card-modal.rc-legendary { background: linear-gradient(165deg,#180c00,#2c1600); border: 2px solid #ffaa00; }
+
+.card-modal.rc-common    { box-shadow: 0 20px 60px rgba(112,144,200,.35); }
+.card-modal.rc-rare      { box-shadow: 0 20px 60px rgba(0,180,255,.4); }
+.card-modal.rc-epic      { box-shadow: 0 20px 60px rgba(200,64,255,.5); }
+.card-modal.rc-legendary { box-shadow: 0 20px 60px rgba(255,170,0,.65); animation: lg-pulse 2.5s ease-in-out infinite; }
+
+/* Holo sweep on modal */
+.card-modal.rc-epic::before, .card-modal.rc-legendary::before {
+  content: '';
+  position: absolute; top: -10%; left: -70%;
+  width: 35%; height: 120%;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,.08), transparent);
+  transform: skewX(-18deg);
+  animation: holo-sweep 3s ease-in-out infinite;
+  pointer-events: none; z-index: 5;
+}
+.card-modal.rc-legendary::before {
+  background: linear-gradient(105deg, transparent, rgba(255,200,50,.12), transparent);
+  animation-duration: 2.2s;
+}
+
+/* Close button */
+.card-modal-close {
+  position: absolute; top: 10px; right: 12px;
+  width: 28px; height: 28px; z-index: 20;
+  background: rgba(0,0,0,.45); border: none; border-radius: 50%;
+  color: rgba(255,255,255,.7); font-size: 1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.card-modal-close:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+/* Rarity corner pip */
+.card-modal-pip {
+  position: absolute; top: 12px; left: 14px; z-index: 20;
+  font-family: 'Press Start 2P', monospace; font-size: .5rem;
+  line-height: 1;
+}
+.rc-common  .card-modal-pip  { color: #7090c8; }
+.rc-rare    .card-modal-pip  { color: #00b4ff; text-shadow: 0 0 8px rgba(0,180,255,.7); }
+.rc-epic    .card-modal-pip  { color: #c840ff; text-shadow: 0 0 10px rgba(200,64,255,.8); }
+.rc-legendary .card-modal-pip{ color: #ffaa00; text-shadow: 0 0 12px rgba(255,170,0,.9); }
+
+/* Photo */
+.card-modal-photo {
+  width: 100%; height: 200px;
+  overflow: hidden; flex-shrink: 0; position: relative;
+  background: rgba(0,0,0,.4);
+}
+.card-modal-photo img {
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: top center; display: block;
+  transition: transform .4s;
+}
+.card-modal:hover .card-modal-photo img { transform: scale(1.04); }
+.card-modal-photo-fb {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center; font-size: 5rem;
+}
+.card-modal-photo::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 50px;
+  background: linear-gradient(transparent, rgba(0,0,0,.85));
+  pointer-events: none; z-index: 1;
+}
+
+/* Info section */
+.card-modal-info {
+  padding: 14px 18px 18px; position: relative; z-index: 2;
+}
+.card-modal-rarity {
+  font-family: 'Press Start 2P', monospace; font-size: .52rem;
+  margin-bottom: 8px; display: block; line-height: 1;
+}
+.rc-common    .card-modal-rarity { color: #7090c8; }
+.rc-rare      .card-modal-rarity { color: #00b4ff; text-shadow: 0 0 8px rgba(0,180,255,.5); }
+.rc-epic      .card-modal-rarity { color: #c840ff; text-shadow: 0 0 10px rgba(200,64,255,.6); }
+.rc-legendary .card-modal-rarity { color: #ffaa00; text-shadow: 0 0 14px rgba(255,170,0,.8); }
+
+.card-modal-name {
+  font-size: 1.15rem; font-weight: 900; color: #fff;
+  line-height: 1.2; margin-bottom: 8px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+}
+.card-modal-meta {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.card-modal-pos {
+  font-family: 'Press Start 2P', monospace; font-size: .48rem; font-weight: 900;
+}
+.rc-common    .card-modal-pos { color: #7090c8; }
+.rc-rare      .card-modal-pos { color: #00b4ff; }
+.rc-epic      .card-modal-pos { color: #c840ff; }
+.rc-legendary .card-modal-pos { color: #ffaa00; }
+
+.card-modal-flag { width: 22px; height: 15px; object-fit: cover; border-radius: 2px; }
+.card-modal-team { font-size: .78rem; color: rgba(255,255,255,.55); }
+.card-modal-dup  { font-size: .72rem; color: rgba(255,255,255,.4); margin-top: 4px; }
+
+/* Card items are clickable when owned */
+.card-item:not(.card-missing) { cursor: pointer; }
+
