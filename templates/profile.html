@@ -118,23 +118,40 @@
     {% endif %}
   </div>
 
-  <!-- WORST TEAM -->
-  {% if worst %}
-  <div class="settings-card">
-    <div class="settings-title pixel-text">MI PEOR SELECCIÓN</div>
-    <div class="worst-team-display">
-      {{ flagx(worst.team) }}
-      <div>
-        <div style="font-size:1.1rem;font-weight:700">{{ worst.team.name }}</div>
-        <div style="color:var(--muted);font-size:.8rem">Puntos acumulados</div>
+  <!-- WORST TEAM — solo lectura, siempre visible -->
+  <div class="settings-card" style="border-left:4px solid var(--secondary)">
+    <div class="settings-title pixel-text" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      🤡 MI PEOR SELECCIÓN
+      <span style="font-size:.55rem;color:var(--secondary);background:rgba(238,0,85,.1);padding:4px 10px;border-radius:6px;font-family:'Exo 2',sans-serif;font-weight:700">🔒 NO MODIFICABLE</span>
+    </div>
+
+    {% if worst %}
+    <div style="display:flex;align-items:center;gap:16px;padding:14px 0;flex-wrap:wrap">
+      <div style="flex-shrink:0">{{ flagx(worst.team) }}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:1.2rem;font-weight:900;color:var(--text)">{{ worst.team.name }}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:2px">
+          Asignada al azar al registrarte
+        </div>
       </div>
-      <div class="pts-counter" style="font-size:1.5rem">{{ worst.points_earned }}</div>
+      <div style="text-align:center;flex-shrink:0">
+        <div style="font-family:'Press Start 2P',monospace;font-size:1.4rem;color:var(--secondary);text-shadow:0 0 10px rgba(238,0,85,.4)">{{ worst.points_earned }}</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:2px">PTS GANADOS</div>
+      </div>
     </div>
-    <div style="font-size:.75rem;color:var(--muted);margin-top:10px">
-      +1 pto/gol marcado · +1 pto/cada 3 goles encajados
+    <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;font-size:.74rem;color:var(--muted);line-height:1.9">
+      <strong style="color:var(--text2)">¿Cómo se calculan?</strong><br>
+      +1 pto por cada gol que marque tu selección<br>
+      +1 pto por cada 3 goles que le encajen
     </div>
+    {% else %}
+    <div style="padding:18px 0;text-align:center;color:var(--muted)">
+      <div style="font-size:2rem;margin-bottom:8px">⏳</div>
+      <p style="font-size:.82rem">Aún no tienes peor selección asignada.<br>
+      <span style="font-size:.75rem">Se asigna automáticamente al completar el registro.</span></p>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 
   <!-- BONUS EXTRA -->
   <div class="settings-card">
