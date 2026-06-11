@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Actividad — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+
+  <div class="page-header">
+    <div class="pixel-text glow-blue" style="font-size:.9rem">⚡ ACTIVIDAD</div>
+  </div>
+
+  <!-- MIS LOGROS -->
+  <div class="section-header"><span class="pixel-text section-title">MIS LOGROS</span></div>
+  <div class="achievements-grid">
+    {% for a in achievements %}
+    <div class="achievement-card color-{{ a.c }}">
+      <span class="ach-emoji">{{ a.e }}</span>
+      <div class="ach-info">
+        <div class="ach-name pixel-text">{{ a.n }}</div>
+        <div class="ach-desc">{{ a.d }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ACTIVIDAD DEL GRUPO -->
+  <div class="section-header" style="margin-top:24px">
+    <span class="pixel-text section-title">EN EL GRUPO</span>
+  </div>
+  <div class="feed-list">
+    {% if feed %}
+      {% for item in feed %}
+      <div class="feed-item">
+        <span class="feed-emoji">{{ item.e }}</span>
+        <div class="feed-body">
+          {% if item.user %}
+          <span class="av av-xs" style="background:{{ item.user.avatar_bg }}">{{ item.user.avatar_emoji }}</span>
+          {% endif %}
+          <span class="feed-text">{{ item.text }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="empty-state">Sin actividad todavía. ¡Empieza a poner porras!</div>
+    {% endif %}
+  </div>
+
+  <!-- LOGROS DE TODOS -->
+  <div class="section-header" style="margin-top:24px">
+    <span class="pixel-text section-title">LOGROS DEL GRUPO</span>
+  </div>
+  <div class="all-achievements-list">
+    {% for u in all_users | sort(attribute='total_points', reverse=True) %}
+    {% set ua = all_achievements.get(u.id, []) %}
+    {% if ua %}
+    <div class="user-ach-row">
+      <span class="av av-sm" style="background:{{ u.avatar_bg }}">{{ u.avatar_emoji }}</span>
+      <span class="user-ach-name">{{ u.name }}</span>
+      <div class="user-ach-badges">
+        {% for a in ua %}
+        <span class="ach-pill color-{{ a.c }}" title="{{ a.n }}: {{ a.d }}">{{ a.e }} {{ a.n }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- MI COLECCIÓN -->
+  {% if collection %}
+  <div class="section-header" style="margin-top:24px">
+    <span class="pixel-text section-title">MI COLECCIÓN</span>
+    <span style="font-size:.75rem;color:var(--muted)">{{ collection|length }}/{{ total_teams }} selecciones</span>
+  </div>
+  <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">Equipos que has acertado con marcador exacto</p>
+  <div class="collection-grid">
+    {% for t in collection %}
+    <div class="cromo">
+      {% if t.flag_img %}
+      <img src="/static/flags/{{ t.flag_img }}" class="cromo-flag" alt="{{ t.name }}">
+      {% else %}
+      <span style="font-size:1.5rem">{{ t.flag_emoji }}</span>
+      {% endif %}
+      <span class="cromo-name">{{ t.name }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

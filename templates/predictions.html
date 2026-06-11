@@ -40,10 +40,14 @@
           {% else %}glow-miss{% endif %}
         {% endif %}">
 
+        {% if match.is_daily_bonus %}
+        <div class="daily-bonus-banner pixel-text">⭐ PARTIDO BONUS DEL DÍA — PUNTOS ×2</div>
+        {% endif %}
         <div class="mcf-top">
           <div class="mcf-meta">
             <span class="match-phase">{{ match.display_phase }}</span>
             {% if match.double_points %}<span class="double-tag">×2 🇪🇸</span>{% endif %}
+            {% if match.is_daily_bonus %}<span class="daily-tag">⭐ BONUS</span>{% endif %}
             {% if match.is_locked %}<span class="locked-tag">🔒</span>{% endif %}
           </div>
           <div class="mcf-datetime">{{ match.match_date.strftime('%d/%m/%Y %H:%M') }}

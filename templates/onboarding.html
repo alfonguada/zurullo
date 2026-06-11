@@ -91,9 +91,15 @@
 
   <!-- STEP 3: DONE -->
   <div class="ob-step hidden" id="step-3">
-    <div class="pixel-text glow-green ob-title" style="font-size:1rem">¡LISTO, JUGADOR!</div>
-    <div class="avatar-lg" id="final-avatar" style="background:#ff0066;font-size:3rem;margin:20px auto">👾</div>
-    <p class="ob-sub">Redirigiendo al juego...</p>
+    <div class="pixel-text glow-green ob-title" style="font-size:.85rem">¡LISTO, JUGADOR!</div>
+    <div class="av av-lg" id="final-avatar" style="background:#ff0066;font-size:2.5rem;margin:20px auto;width:64px;height:64px">👾</div>
+    <div id="worst-team-reveal" class="hidden ob-card" style="margin-top:16px;text-align:center">
+      <div class="pixel-text" style="font-size:.45rem;color:var(--muted);margin-bottom:10px">TU PEOR SELECCIÓN ASIGNADA</div>
+      <img id="wt-flag" src="" style="width:56px;height:42px;object-fit:cover;border:2px solid var(--border);display:none">
+      <div id="wt-name" style="font-size:1rem;font-weight:700;margin-top:8px;color:var(--text)"></div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:6px">+1 pto/gol marcado · +1 pto/3 goles encajados</div>
+    </div>
+    <p class="ob-sub" style="margin-top:16px">Redirigiendo al juego...</p>
     <div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>
   </div>
 
@@ -156,7 +162,17 @@ function saveBonus() {
       final.classList.remove('hidden');
       document.getElementById('final-avatar').textContent = selectedEmoji;
       document.getElementById('final-avatar').style.background = selectedBg;
-      setTimeout(() => { window.location.href = data.redirect; }, 1800);
+      // Mostrar peor selección asignada
+      if (data.worst_team) {
+        const wt = data.worst_team;
+        document.getElementById('wt-name').textContent = wt.name;
+        const img = document.getElementById('wt-flag');
+        if (wt.flag_img) { img.src = '/static/flags/' + wt.flag_img; img.style.display = 'block'; }
+        document.getElementById('worst-team-reveal').classList.remove('hidden');
+        setTimeout(() => { window.location.href = data.redirect; }, 3000);
+      } else {
+        setTimeout(() => { window.location.href = data.redirect; }, 1800);
+      }
     }
   });
 }

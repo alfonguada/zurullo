@@ -19,9 +19,10 @@ class User(UserMixin, db.Model):
     onboarding_done = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    predictions = db.relationship('Prediction', back_populates='user', lazy='dynamic')
-    bonus = db.relationship('BonusPrediction', back_populates='user', uselist=False)
-    worst_team = db.relationship('WorstTeamAssignment', back_populates='user', uselist=False)
+    predictions  = db.relationship('Prediction', back_populates='user', lazy='dynamic')
+    bonus        = db.relationship('BonusPrediction', back_populates='user', uselist=False)
+    extra_bonus  = db.relationship('ExtraBonusPrediction', back_populates='user', uselist=False)
+    worst_team   = db.relationship('WorstTeamAssignment', back_populates='user', uselist=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -43,15 +44,16 @@ class User(UserMixin, db.Model):
 
     @property
     def bonus_points(self):
-        if not self.bonus:
-            return 0
-        return (self.bonus.champion_points or 0) + (self.bonus.runner_up_points or 0) + (self.bonus.scorer_points or 0)
+        pts = 0
+        if self.bonus:
+            pts += (self.bonus.champion_points or 0) + (self.bonus.runner_up_points or 0) + (self.bonus.scorer_points or 0)
+        if self.extra_bonus:
+            pts += self.extra_bonus.total_pts
+        return pts
 
     @property
     def worst_points(self):
-        if not self.worst_team:
-            return 0
-        return self.worst_team.points_earned or 0
+        return self.worst_team.points_earned if self.worst_team else 0
 
     @property
     def total_points(self):
@@ -89,11 +91,16 @@ class Match(db.Model):
     goals2 = db.Column(db.Integer)
     is_locked = db.Column(db.Boolean, default=False)
     double_points = db.Column(db.Boolean, default=False)
+    is_daily_bonus = db.Column(db.Boolean, default=False)
     match_number = db.Column(db.Integer, default=0)
 
     team1 = db.relationship('Team', foreign_keys=[team1_id])
     team2 = db.relationship('Team', foreign_keys=[team2_id])
     predictions = db.relationship('Prediction', back_populates='match', lazy='dynamic')
+
+    @property
+    def any_double(self):
+        return self.double_points or self.is_daily_bonus
 
     @property
     def result_entered(self):
@@ -102,11 +109,8 @@ class Match(db.Model):
     @property
     def display_phase(self):
         phases = {
-            'group': 'Fase de Grupos',
-            'r16': 'Octavos de Final',
-            'qf': 'Cuartos de Final',
-            'sf': 'Semifinales',
-            'final': 'FINAL',
+            'group': 'Fase de Grupos', 'r16': 'Octavos de Final',
+            'qf': 'Cuartos de Final', 'sf': 'Semifinales', 'final': 'FINAL',
         }
         return phases.get(self.phase, self.phase)
 
@@ -121,7 +125,7 @@ class Prediction(db.Model):
     points_earned = db.Column(db.Integer)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', back_populates='predictions')
+    user  = db.relationship('User', back_populates='predictions')
     match = db.relationship('Match', back_populates='predictions')
 
     __table_args__ = (db.UniqueConstraint('user_id', 'match_id'),)
@@ -138,9 +142,31 @@ class BonusPrediction(db.Model):
     runner_up_points = db.Column(db.Integer, default=0)
     scorer_points = db.Column(db.Integer, default=0)
 
-    user = db.relationship('User', back_populates='bonus')
-    champion = db.relationship('Team', foreign_keys=[champion_id])
-    runner_up = db.relationship('Team', foreign_keys=[runner_up_id])
+    user       = db.relationship('User', back_populates='bonus')
+    champion   = db.relationship('Team', foreign_keys=[champion_id])
+    runner_up  = db.relationship('Team', foreign_keys=[runner_up_id])
+
+
+class ExtraBonusPrediction(db.Model):
+    """Bonus extra: equipo más goleador, más tarjetas, caballo negro."""
+    __tablename__ = 'extra_bonus'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    most_goals_id  = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    most_cards_id  = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    dark_horse_id  = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    most_goals_pts = db.Column(db.Integer, default=0)
+    most_cards_pts = db.Column(db.Integer, default=0)
+    dark_horse_pts = db.Column(db.Integer, default=0)
+
+    user            = db.relationship('User', back_populates='extra_bonus')
+    most_goals_team = db.relationship('Team', foreign_keys=[most_goals_id])
+    most_cards_team = db.relationship('Team', foreign_keys=[most_cards_id])
+    dark_horse_team = db.relationship('Team', foreign_keys=[dark_horse_id])
+
+    @property
+    def total_pts(self):
+        return (self.most_goals_pts or 0) + (self.most_cards_pts or 0) + (self.dark_horse_pts or 0)
 
 
 class WorstTeamAssignment(db.Model):
@@ -157,12 +183,19 @@ class WorstTeamAssignment(db.Model):
 class TournamentSettings(db.Model):
     __tablename__ = 'tournament_settings'
     id = db.Column(db.Integer, primary_key=True)
-    bonus_locked = db.Column(db.Boolean, default=False)
-    champion_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
-    runner_up_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
-    top_scorer_name = db.Column(db.String(100), default='')
-    prize_pool = db.Column(db.Float, default=0.0)
-    last_sync = db.Column(db.DateTime)
+    bonus_locked   = db.Column(db.Boolean, default=False)
+    champion_id    = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    runner_up_id   = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    top_scorer_name= db.Column(db.String(100), default='')
+    prize_pool     = db.Column(db.Float, default=0.0)
+    last_sync      = db.Column(db.DateTime)
+    # Extra bonus winners
+    most_goals_id  = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    most_cards_id  = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    dark_horse_id  = db.Column(db.Integer, db.ForeignKey('teams.id'))
 
-    champion_team = db.relationship('Team', foreign_keys=[champion_id])
-    runner_up_team = db.relationship('Team', foreign_keys=[runner_up_id])
+    champion_team    = db.relationship('Team', foreign_keys=[champion_id])
+    runner_up_team   = db.relationship('Team', foreign_keys=[runner_up_id])
+    most_goals_team  = db.relationship('Team', foreign_keys=[most_goals_id])
+    most_cards_team  = db.relationship('Team', foreign_keys=[most_cards_id])
+    dark_horse_team  = db.relationship('Team', foreign_keys=[dark_horse_id])

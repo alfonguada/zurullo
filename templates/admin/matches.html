@@ -69,6 +69,24 @@
   </div>
 
   <!-- MATCH LIST -->
+  <!-- Bonus del día -->
+  <div class="settings-card" style="margin-bottom:16px">
+    <div class="settings-title pixel-text">⭐ PARTIDO BONUS DEL DÍA</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">
+      Selecciona aleatoriamente un partido de las próximas 48h que valdrá el doble.
+    </p>
+    <form method="POST" action="{{ url_for('admin_daily_bonus') }}">
+      <button type="submit" class="btn-pixel btn-pink" onclick="return confirm('¿Sortear partido bonus aleatorio?')">⭐ SORTEAR BONUS DEL DÍA</button>
+    </form>
+    {% set daily = matches | selectattr('is_daily_bonus') | list %}
+    {% if daily %}
+    <div style="margin-top:12px;font-size:.85rem;color:var(--accent)">
+      ⭐ Actual: {{ flag(daily[0].team1) }} {{ daily[0].team1.name }} vs {{ daily[0].team2.name }} {{ flag(daily[0].team2) }}
+      ({{ daily[0].match_date.strftime('%d/%m %H:%M') }})
+    </div>
+    {% endif %}
+  </div>
+
   <div class="settings-card">
     <div class="settings-title pixel-text">{{ matches|length }} PARTIDOS</div>
     {% if matches %}

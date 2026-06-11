@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import os
 
-from models import db, User, Team, Match, Prediction, BonusPrediction, WorstTeamAssignment, TournamentSettings
+import random
+from models import db, User, Team, Match, Prediction, BonusPrediction, ExtraBonusPrediction, WorstTeamAssignment, TournamentSettings
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zurullo-wc-2026-secret')
@@ -89,7 +90,129 @@ def recalc_match(match):
     for pred in match.predictions:
         pred.points_earned = calc_points(pred.goals1, pred.goals2,
                                          match.goals1, match.goals2,
-                                         match.double_points)
+                                         match.any_double)
+
+
+# ─── HELPERS: STREAKS & ACHIEVEMENTS ─────────────────────────────────────────
+
+def compute_streak(user_id, positive=True):
+    """Consecutive correct (positive=True) or wrong (False) predictions, most recent first."""
+    preds = (Prediction.query.join(Match)
+             .filter(Prediction.user_id == user_id,
+                     Prediction.points_earned.isnot(None))
+             .order_by(Match.match_date.desc()).all())
+    streak = 0
+    for p in preds:
+        hit = (p.points_earned > 0) if positive else (p.points_earned == 0)
+        if hit:
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def compute_achievements(user, all_users):
+    ranked = sorted(all_users, key=lambda u: (u.total_points, u.exact_scores), reverse=True)
+    rank = next((i + 1 for i, u in enumerate(ranked) if u.id == user.id), len(ranked))
+    n = len(ranked)
+
+    scored = Prediction.query.filter(
+        Prediction.user_id == user.id, Prediction.points_earned.isnot(None)).count()
+    correct = Prediction.query.filter(
+        Prediction.user_id == user.id, Prediction.points_earned > 0).count()
+    accuracy = (correct / scored * 100) if scored > 0 else 0
+
+    streak_w = compute_streak(user.id, True)
+    streak_l = compute_streak(user.id, False)
+
+    A = []
+    if rank == 1 and n > 1:
+        A.append({'e': '👑', 'n': 'Líder Supremo',     'd': '#1 de la clasificación',       'c': 'accent'})
+    if rank == n and n > 1:
+        A.append({'e': '🤡', 'n': 'Gafe Oficial',       'd': 'Último en la clasificación',   'c': 'secondary'})
+    if user.exact_scores >= 10:
+        A.append({'e': '🧙', 'n': 'El Adivino',         'd': f'{user.exact_scores} exactos', 'c': 'primary'})
+    elif user.exact_scores >= 3:
+        A.append({'e': '🎯', 'n': 'Francotirador',      'd': f'{user.exact_scores} exactos', 'c': 'primary'})
+    elif user.exact_scores >= 1:
+        A.append({'e': '💡', 'n': 'Primer Impacto',     'd': 'Primer resultado exacto',      'c': 'blue'})
+    if streak_w >= 5:
+        A.append({'e': '🔥', 'n': 'En Llamas',          'd': f'{streak_w} seguidos',         'c': 'orange'})
+    elif streak_w >= 3:
+        A.append({'e': '⚡', 'n': 'Calentando',         'd': f'{streak_w} seguidos',         'c': 'accent'})
+    if streak_l >= 5:
+        A.append({'e': '🧊', 'n': 'Cubito de Hielo',    'd': f'{streak_l} fallos seguidos',  'c': 'secondary'})
+    elif streak_l >= 3:
+        A.append({'e': '💀', 'n': 'Racha Negra',        'd': f'{streak_l} fallos seguidos',  'c': 'secondary'})
+    if accuracy >= 70 and scored >= 10:
+        A.append({'e': '🦅', 'n': 'Águila Real',        'd': f'{accuracy:.0f}% acierto',     'c': 'blue'})
+    if scored == 0:
+        A.append({'e': '😴', 'n': '¿Estás Ahí?',        'd': 'Aún sin porras',               'c': 'muted'})
+    if user.bonus and user.bonus.champion_id and user.bonus.runner_up_id and user.bonus.top_scorer_name:
+        A.append({'e': '🏆', 'n': 'All-In',             'd': 'Todos los bonus rellenados',   'c': 'accent'})
+    if user.worst_team and user.worst_points >= 5:
+        A.append({'e': '🎪', 'n': 'Mi Equipo, Mi Vida', 'd': f'+{user.worst_points} pts con tu peor selección', 'c': 'orange'})
+    if not A:
+        A.append({'e': '🐣', 'n': 'Recién Llegado',     'd': 'El inicio de una leyenda',     'c': 'muted'})
+    return A
+
+
+def build_activity_feed():
+    """Generate interesting activity items from DB."""
+    items = []
+    users = User.query.all()
+    for user in users:
+        sw = compute_streak(user.id, True)
+        sl = compute_streak(user.id, False)
+        if sw >= 3:
+            items.append({'e': '🔥', 'text': f'{user.name} lleva {sw} aciertos seguidos',
+                          'user': user, 'score': sw * 2})
+        if sl >= 3:
+            items.append({'e': '❄️', 'text': f'{user.name} no da ni una ({sl} fallos seguidos)',
+                          'user': user, 'score': sl})
+        last_exact = (Prediction.query.filter(
+            Prediction.user_id == user.id, Prediction.points_earned.in_([3, 6]))
+            .join(Match).order_by(Match.match_date.desc()).first())
+        if last_exact and last_exact.match.result_entered:
+            m = last_exact.match
+            items.append({'e': '🎯',
+                          'text': f'{user.name} acertó el exacto: {m.team1.name} {m.goals1}–{m.goals2} {m.team2.name}',
+                          'user': user, 'score': 4})
+    # Global: leader
+    ranked = sorted(users, key=lambda u: u.total_points, reverse=True)
+    if ranked:
+        top = ranked[0]
+        items.append({'e': '👑', 'text': f'{top.name} lidera con {top.total_points} puntos',
+                      'user': top, 'score': 10})
+        if len(ranked) > 1:
+            last = ranked[-1]
+            items.append({'e': '🤡', 'text': f'{last.name} cierra la tabla con {last.total_points} pts',
+                          'user': last, 'score': 3})
+    # Deduplicate and sort
+    seen = set()
+    unique = []
+    for it in sorted(items, key=lambda x: x['score'], reverse=True):
+        key = it['text']
+        if key not in seen:
+            seen.add(key)
+            unique.append(it)
+    return unique[:20]
+
+
+def auto_assign_worst_team(user):
+    """Assign a random unclaimed worst team to user. Returns team or None."""
+    if WorstTeamAssignment.query.filter_by(user_id=user.id).first():
+        return None
+    taken = [a.team_id for a in WorstTeamAssignment.query.all()]
+    available = Team.query.filter_by(is_worst=True).filter(
+        ~Team.id.in_(taken) if taken else db.true()
+    ).all()
+    if not available:
+        return None
+    team = random.choice(available)
+    db.session.add(WorstTeamAssignment(user_id=user.id, team_id=team.id))
+    db.session.commit()
+    return team
 
 
 def recalc_worst_teams():
@@ -204,7 +327,12 @@ def onboarding():
                 db.session.commit()
             current_user.onboarding_done = True
             db.session.commit()
-            return jsonify({'ok': True, 'redirect': url_for('dashboard')})
+            # Auto-asignar peor selección aleatoria
+            assigned = auto_assign_worst_team(current_user)
+            team_data = None
+            if assigned:
+                team_data = {'name': assigned.name, 'flag_img': assigned.flag_img, 'flag_emoji': assigned.flag_emoji}
+            return jsonify({'ok': True, 'redirect': url_for('dashboard'), 'worst_team': team_data})
     return render_template('onboarding.html', teams=teams, settings=settings)
 
 
@@ -322,6 +450,7 @@ def profile():
     teams = Team.query.order_by(Team.name).all()
     settings = TournamentSettings.query.first()
     bonus = BonusPrediction.query.filter_by(user_id=current_user.id).first()
+    extra_bonus = ExtraBonusPrediction.query.filter_by(user_id=current_user.id).first()
     worst = WorstTeamAssignment.query.filter_by(user_id=current_user.id).first()
     if request.method == 'POST':
         action = request.form.get('action')
@@ -361,7 +490,8 @@ def profile():
                 db.session.commit()
                 flash('¡Contraseña cambiada!', 'success')
         return redirect(url_for('profile'))
-    return render_template('profile.html', teams=teams, settings=settings, bonus=bonus, worst=worst)
+    return render_template('profile.html', teams=teams, settings=settings,
+                           bonus=bonus, extra_bonus=extra_bonus, worst=worst)
 
 
 @app.route('/api/sync')
@@ -453,8 +583,8 @@ def api_sync():
 @login_required
 def match_predictions(match_id):
     match = Match.query.get_or_404(match_id)
-    if not match.result_entered:
-        return jsonify({'error': 'Resultado no disponible aún.'}), 403
+    if not match.is_locked:
+        return jsonify({'error': 'Las porras se revelan cuando empieza el partido.'}), 403
     data = []
     for p in Prediction.query.filter_by(match_id=match_id).all():
         data.append({
@@ -467,6 +597,75 @@ def match_predictions(match_id):
         })
     data.sort(key=lambda x: x['pts'], reverse=True)
     return jsonify(data)
+
+
+@app.route('/activity')
+@login_required
+def activity():
+    if not current_user.onboarding_done:
+        return redirect(url_for('onboarding'))
+    all_users = User.query.all()
+    feed = build_activity_feed()
+    achievements = compute_achievements(current_user, all_users)
+    # Collection: teams from exact predictions
+    exact_preds = (Prediction.query.filter(
+        Prediction.user_id == current_user.id,
+        Prediction.points_earned.in_([3, 6])).all())
+    collected_ids = set()
+    for p in exact_preds:
+        collected_ids.add(p.match.team1_id)
+        collected_ids.add(p.match.team2_id)
+    collection = Team.query.filter(Team.id.in_(collected_ids)).all() if collected_ids else []
+    total_teams = Team.query.count()
+    # All users' achievements for the board
+    all_achievements = {u.id: compute_achievements(u, all_users) for u in all_users}
+    return render_template('activity.html', feed=feed, achievements=achievements,
+                           collection=collection, total_teams=total_teams,
+                           all_users=all_users, all_achievements=all_achievements)
+
+
+@app.route('/extra-bonus', methods=['POST'])
+@login_required
+def save_extra_bonus():
+    settings = TournamentSettings.query.first()
+    if settings and settings.bonus_locked:
+        return jsonify({'error': 'Bonus bloqueados.'}), 400
+    eb = ExtraBonusPrediction.query.filter_by(user_id=current_user.id).first()
+    if not eb:
+        eb = ExtraBonusPrediction(user_id=current_user.id)
+        db.session.add(eb)
+    mg = request.form.get('most_goals_id')
+    mc = request.form.get('most_cards_id')
+    dh = request.form.get('dark_horse_id')
+    eb.most_goals_id = int(mg) if mg else None
+    eb.most_cards_id = int(mc) if mc else None
+    eb.dark_horse_id = int(dh) if dh else None
+    db.session.commit()
+    flash('¡Bonus extra guardado!', 'success')
+    return redirect(url_for('profile'))
+
+
+@app.route('/admin/daily-bonus', methods=['POST'])
+@login_required
+@admin_required
+def admin_daily_bonus():
+    """Asigna aleatoriamente un partido bonus del día entre los próximos no jugados."""
+    # Quitar bonus anterior
+    Match.query.filter_by(is_daily_bonus=True).update({'is_daily_bonus': False})
+    now = datetime.utcnow()
+    candidates = Match.query.filter(
+        Match.goals1.is_(None),
+        Match.match_date >= now,
+        Match.match_date <= now + timedelta(hours=48)
+    ).all()
+    if not candidates:
+        flash('No hay partidos próximos para asignar el bonus.', 'error')
+    else:
+        chosen = random.choice(candidates)
+        chosen.is_daily_bonus = True
+        flash(f'⭐ Bonus del día: {chosen.team1.name} vs {chosen.team2.name}', 'success')
+    db.session.commit()
+    return redirect(url_for('admin_matches'))
 
 
 # ─── ADMIN ROUTES ─────────────────────────────────────────────────────────────
@@ -617,6 +816,23 @@ def admin_settings():
             settings.prize_pool = float(request.form.get('prize_pool') or 0)
             db.session.commit()
             flash('Bote actualizado.', 'success')
+        elif action == 'extra_bonus':
+            mg = request.form.get('most_goals_id')
+            mc = request.form.get('most_cards_id')
+            dh = request.form.get('dark_horse_id')
+            settings.most_goals_id = int(mg) if mg else None
+            settings.most_cards_id = int(mc) if mc else None
+            settings.dark_horse_id = int(dh) if dh else None
+            db.session.commit()
+            # Calcular puntos extra bonus para todos los usuarios
+            for u in User.query.all():
+                eb = ExtraBonusPrediction.query.filter_by(user_id=u.id).first()
+                if eb:
+                    eb.most_goals_pts = 5 if eb.most_goals_id and eb.most_goals_id == settings.most_goals_id else 0
+                    eb.most_cards_pts = 3 if eb.most_cards_id and eb.most_cards_id == settings.most_cards_id else 0
+                    eb.dark_horse_pts = 5 if eb.dark_horse_id and eb.dark_horse_id == settings.dark_horse_id else 0
+            db.session.commit()
+            flash('Ganadores bonus extra guardados y puntos calculados.', 'success')
         elif action == 'recalc':
             for m in Match.query.filter(Match.goals1.isnot(None)).all():
                 recalc_match(m)

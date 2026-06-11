@@ -75,6 +75,37 @@
     </form>
   </div>
 
+  <!-- BONUS EXTRA WINNERS -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">🎲 GANADORES BONUS EXTRA</div>
+    <p style="color:var(--muted);font-size:.85rem">Al guardar se calculan los puntos de bonus extra para todos.</p>
+    <form method="POST">
+      <input type="hidden" name="action" value="extra_bonus">
+      <div class="field-group">
+        <label class="field-label">⚽ EQUIPO MÁS GOLEADOR (+5)</label>
+        <select name="most_goals_id" class="field-input">
+          <option value="">— Sin definir —</option>
+          {% for t in teams %}<option value="{{ t.id }}" {% if settings.most_goals_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">🟨 EQUIPO MÁS TARJETAS (+3)</label>
+        <select name="most_cards_id" class="field-input">
+          <option value="">— Sin definir —</option>
+          {% for t in teams %}<option value="{{ t.id }}" {% if settings.most_cards_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">🐴 CABALLO NEGRO — sorpresa del torneo (+5)</label>
+        <select name="dark_horse_id" class="field-input">
+          <option value="">— Sin definir —</option>
+          {% for t in teams %}<option value="{{ t.id }}" {% if settings.dark_horse_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-pixel btn-pink">GUARDAR Y CALCULAR BONUS EXTRA</button>
+    </form>
+  </div>
+
   <!-- RECALCULATE -->
   <div class="settings-card">
     <div class="settings-title pixel-text">🔄 RECALCULAR PUNTOS</div>

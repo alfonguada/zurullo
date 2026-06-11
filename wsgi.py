@@ -18,6 +18,10 @@ def run_migrations():
     migrations = [
         "ALTER TABLE teams ADD COLUMN flag_img VARCHAR(50) DEFAULT ''",
         "ALTER TABLE tournament_settings ADD COLUMN last_sync DATETIME",
+        "ALTER TABLE tournament_settings ADD COLUMN most_goals_id INTEGER",
+        "ALTER TABLE tournament_settings ADD COLUMN most_cards_id INTEGER",
+        "ALTER TABLE tournament_settings ADD COLUMN dark_horse_id INTEGER",
+        "ALTER TABLE matches ADD COLUMN is_daily_bonus BOOLEAN DEFAULT 0",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:

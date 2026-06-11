@@ -136,6 +136,76 @@
   </div>
   {% endif %}
 
+  <!-- BONUS EXTRA -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">🎲 BONUS EXTRA</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:14px">
+      +5 pts equipo más goleador · +3 pts más tarjetas · +5 pts caballo negro
+    </p>
+    {% if settings and settings.bonus_locked %}
+    <div class="alert-pixel alert-warning">🔒 Bonus bloqueados.</div>
+    {% if extra_bonus %}
+    <div class="bonus-summary">
+      <div class="bonus-row-sm"><span class="bonus-badge badge-green">+5</span>
+        ⚽ {% if extra_bonus.most_goals_team %}{{ flag(extra_bonus.most_goals_team) }} {{ extra_bonus.most_goals_team.name }}{% else %}—{% endif %}
+        {% if extra_bonus.most_goals_pts %}<span class="pts-pill">✓ +{{ extra_bonus.most_goals_pts }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-orange">+3</span>
+        🟨 {% if extra_bonus.most_cards_team %}{{ flag(extra_bonus.most_cards_team) }} {{ extra_bonus.most_cards_team.name }}{% else %}—{% endif %}
+        {% if extra_bonus.most_cards_pts %}<span class="pts-pill">✓ +{{ extra_bonus.most_cards_pts }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-pink">+5</span>
+        🐴 {% if extra_bonus.dark_horse_team %}{{ flag(extra_bonus.dark_horse_team) }} {{ extra_bonus.dark_horse_team.name }}{% else %}—{% endif %}
+        {% if extra_bonus.dark_horse_pts %}<span class="pts-pill">✓ +{{ extra_bonus.dark_horse_pts }}</span>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <form method="POST" action="{{ url_for('save_extra_bonus') }}">
+      <div class="bonus-row">
+        <div class="bonus-badge badge-green">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">⚽ EQUIPO MÁS GOLEADOR</label>
+          <select name="most_goals_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}<option value="{{ t.id }}" {% if extra_bonus and extra_bonus.most_goals_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-orange">+3</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🟨 EQUIPO MÁS TARJETAS</label>
+          <select name="most_cards_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}<option value="{{ t.id }}" {% if extra_bonus and extra_bonus.most_cards_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-pink">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🐴 CABALLO NEGRO (sorpresa del torneo)</label>
+          <select name="dark_horse_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}<option value="{{ t.id }}" {% if extra_bonus and extra_bonus.dark_horse_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn-pixel">GUARDAR BONUS EXTRA</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- MIS LOGROS -->
+  {% set achievements = [] %}
+  {% if current_user %}
+  <div class="settings-card">
+    <div class="settings-title pixel-text">🏅 MIS LOGROS</div>
+    <a href="{{ url_for('activity') }}" class="btn-pixel btn-sm" style="margin-bottom:14px;display:inline-block">VER ACTIVIDAD COMPLETA →</a>
+  </div>
+  {% endif %}
+
   <!-- CHANGE PASSWORD -->
   <div class="settings-card">
     <div class="settings-title pixel-text">CAMBIAR CONTRASEÑA</div>

@@ -531,6 +531,74 @@ select.field-input { background-image: url("data:image/svg+xml,%3Csvg xmlns='htt
 .team-edit-row     { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); flex-wrap: wrap; }
 .team-edit-form    { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
 
+/* ──────────────────────────────────────────
+   DAILY BONUS BADGE
+   ────────────────────────────────────────── */
+.daily-bonus-banner {
+  background: linear-gradient(90deg, var(--accent), #ff8c00);
+  color: #000; font-size: .45rem; text-align: center;
+  padding: 8px 14px; letter-spacing: 1px;
+  animation: pulse-banner 1.5s ease-in-out infinite;
+}
+@keyframes pulse-banner { 0%,100%{opacity:1} 50%{opacity:.75} }
+.daily-tag { font-size: .58rem; font-weight: 700; color: #000; padding: 2px 8px;
+  background: var(--accent); border-radius: 4px; }
+.match-card-full.is-daily { border: 2px solid var(--accent) !important;
+  box-shadow: 0 0 18px rgba(240,160,0,.2) !important; }
+
+/* ──────────────────────────────────────────
+   ACTIVITY PAGE
+   ────────────────────────────────────────── */
+.achievements-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.achievement-card {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+  border-left: 3px solid var(--border);
+}
+.achievement-card.color-primary   { border-left-color: var(--primary); }
+.achievement-card.color-secondary { border-left-color: var(--secondary); }
+.achievement-card.color-accent    { border-left-color: var(--accent); }
+.achievement-card.color-blue      { border-left-color: var(--blue); }
+.achievement-card.color-orange    { border-left-color: var(--orange); }
+.achievement-card.color-muted     { border-left-color: var(--muted); }
+.ach-emoji { font-size: 1.6rem; flex-shrink: 0; }
+.ach-name  { font-family: 'Press Start 2P', monospace; font-size: .42rem; color: var(--text); margin-bottom: 4px; }
+.ach-desc  { font-size: .72rem; color: var(--muted); }
+
+.feed-list { display: flex; flex-direction: column; gap: 8px; }
+.feed-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.feed-emoji { font-size: 1.3rem; flex-shrink: 0; }
+.feed-body  { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
+.feed-text  { font-size: .85rem; font-weight: 600; color: var(--text); }
+
+.all-achievements-list { display: flex; flex-direction: column; gap: 10px; }
+.user-ach-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); }
+.user-ach-name { font-weight: 700; font-size: .88rem; min-width: 80px; }
+.user-ach-badges { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.ach-pill { font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+  border: 1px solid var(--border); cursor: default; }
+.ach-pill.color-primary   { background: rgba(0,187,85,.1);  color: var(--primary);   border-color: var(--primary); }
+.ach-pill.color-secondary { background: rgba(238,0,85,.1);  color: var(--secondary); border-color: var(--secondary); }
+.ach-pill.color-accent    { background: rgba(240,160,0,.1); color: var(--accent);    border-color: var(--accent); }
+.ach-pill.color-blue      { background: rgba(0,153,204,.1); color: var(--blue);      border-color: var(--blue); }
+.ach-pill.color-orange    { background: rgba(238,102,0,.1); color: var(--orange);    border-color: var(--orange); }
+.ach-pill.color-muted     { background: rgba(0,0,80,.05);   color: var(--muted);     border-color: var(--border); }
+
+.collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+.cromo {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 6px; text-align: center;
+  transition: transform .1s;
+}
+.cromo:active { transform: scale(.95); }
+.cromo-flag { width: 44px; height: 33px; object-fit: cover; border-radius: 2px; }
+.cromo-name { display: block; font-size: .58rem; color: var(--muted); margin-top: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ══════════════════════════════════════════
    DESKTOP (≥ 768px)
    ══════════════════════════════════════════ */
