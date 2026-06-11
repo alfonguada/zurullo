@@ -4,8 +4,6 @@
 *.sqlite3
 instance/
 
-# Banderas descargadas (se regeneran con download_flags.py)
-static/flags/
 
 # Python
 __pycache__/
