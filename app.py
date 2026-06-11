@@ -10,7 +10,8 @@ from models import db, User, Team, Match, Prediction, BonusPrediction, WorstTeam
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zurullo-wc-2026-secret')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zurullo.db'
+_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'zurullo.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
