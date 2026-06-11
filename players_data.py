@@ -845,8 +845,20 @@ def seed_players(db, Player, Team, force=False):
 
 
 def reseed_players(db, Player, UserCard, Team):
-    """Elimina todos los cromos y UserCards y vuelve a sembrar desde cero."""
+    """Elimina todos los cromos y UserCards y vuelve a sembrar desde cero.
+    Preserva las URLs de imagen existentes por nombre de jugador."""
+    # Guardar mapeo nombre→imagen antes de borrar
+    saved_images = {p.name: p.image for p in Player.query.all() if p.image}
     UserCard.query.delete()
     Player.query.delete()
     db.session.commit()
     seed_players(db, Player, Team, force=True)
+    # Restaurar URLs de imagen
+    restored = 0
+    for player in Player.query.all():
+        if player.name in saved_images:
+            player.image = saved_images[player.name]
+            restored += 1
+    if restored:
+        db.session.commit()
+        print(f'URLs de imagen restauradas: {restored}')
