@@ -10,7 +10,7 @@ VENV_DIR="/home/alfon8guada/.virtualenvs/zurullo"
 
 echo "=== 1. Clonando / actualizando repositorio ==="
 if [ -d "$APP_DIR/.git" ]; then
-    cd "$APP_DIR" && git pull
+    cd "$APP_DIR" && git pull origin master
 else
     git clone https://github.com/alfonguada/zurullo.git "$APP_DIR"
     cd "$APP_DIR"
