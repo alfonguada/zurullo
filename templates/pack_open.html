@@ -110,7 +110,9 @@ function loadCard(idx) {
 
   // Photo
   if (c.image) {
-    photoEl.src = `/static/players/${c.image}`;
+    photoEl.src = c.image.startsWith('http')
+      ? c.image
+      : `/static/players/${c.image}`;
     photoEl.style.display = 'block';
     photoFbEl.style.display = 'none';
   } else {
@@ -189,8 +191,11 @@ function flipCard() {
   const mini = document.getElementById(`mini-${current}`);
   if (mini) {
     mini.className = `pack-result-mini rc-${c.rarity} revealed`;
-    const photoHtml = c.image
-      ? `<img src="/static/players/${c.image}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:top">`
+    const imgSrc = c.image
+      ? (c.image.startsWith('http') ? c.image : `/static/players/${c.image}`)
+      : '';
+    const photoHtml = imgSrc
+      ? `<img src="${imgSrc}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:top">`
       : c.icon;
     mini.innerHTML = `
       <div class="mini-photo">${photoHtml}</div>

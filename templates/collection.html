@@ -79,8 +79,12 @@
       <!-- Photo / fallback -->
       <div class="card-photo">
         {% if uc and player.image %}
-        <img src="{{ url_for('static', filename='players/' ~ player.image) }}"
-             alt="{{ player.name }}" loading="lazy">
+          {% if player.image.startswith('http') %}
+          <img src="{{ player.image }}" alt="{{ player.name }}" loading="lazy">
+          {% else %}
+          <img src="{{ url_for('static', filename='players/' ~ player.image) }}"
+               alt="{{ player.name }}" loading="lazy">
+          {% endif %}
         {% else %}
         <div class="card-photo-fallback">{{ player.icon if uc else '?' }}</div>
         {% endif %}
