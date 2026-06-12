@@ -26,6 +26,8 @@ class User(UserMixin, db.Model):
 
     coins_spent  = db.Column(db.Integer, default=0)
     bet_winnings = db.Column(db.Integer, default=0)  # monedas ganadas en apuestas
+    gift_coins   = db.Column(db.Integer, default=0)  # monedas regaladas por el admin
+    gift_alert   = db.Column(db.Integer, default=0)  # regalo pendiente de avisar (una vez)
 
     predictions  = db.relationship('Prediction', back_populates='user', lazy='dynamic')
     bonus        = db.relationship('BonusPrediction', back_populates='user', uselist=False)
@@ -80,7 +82,8 @@ class User(UserMixin, db.Model):
 
     @property
     def coins(self):
-        return max(0, self.coins_earned + (self.bet_winnings or 0) - (self.coins_spent or 0))
+        return max(0, self.coins_earned + (self.bet_winnings or 0)
+                   + (self.gift_coins or 0) - (self.coins_spent or 0))
 
     @property
     def exact_scores(self):

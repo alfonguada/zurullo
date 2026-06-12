@@ -165,6 +165,42 @@ function closeMoreMenu() {
 }
 </script>
 
+<!-- ── ALERTA REGALO DEL LÍDER ── -->
+{% if gift_alert and gift_alert > 0 %}
+<div class="gift-overlay" id="giftOverlay">
+  <div class="gift-coin-rain" id="giftCoinRain"></div>
+  <div class="gift-modal">
+    <div class="gift-crown">👑</div>
+    <div class="gift-title pixel-text">¡OFRENDA REAL!</div>
+    <div class="gift-sub">Tu todopoderoso líder te ha bendecido con</div>
+    <div class="gift-amount pixel-text">+{{ gift_alert }}<span class="gift-coin-ico">🪙</span></div>
+    <div class="gift-sub">como ofrenda de inicio del<br><b>MUNDIAL 2026</b> 🏆</div>
+    <button class="gift-claim pixel-text" onclick="claimGift()">⚡ RECLAMAR ⚡</button>
+  </div>
+</div>
+<script>
+(function(){
+  var rain = document.getElementById('giftCoinRain');
+  for (var i = 0; i < 18; i++) {
+    var c = document.createElement('span');
+    c.className = 'gift-rain-coin';
+    c.textContent = '🪙';
+    c.style.left = (Math.random() * 100) + '%';
+    c.style.animationDelay = (Math.random() * 1.2) + 's';
+    c.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+    c.style.fontSize = (1 + Math.random() * 1.4) + 'rem';
+    rain.appendChild(c);
+  }
+})();
+function claimGift(){
+  var ov = document.getElementById('giftOverlay');
+  ov.classList.add('gift-closing');
+  fetch('{{ url_for("ack_gift") }}', {method:'POST', headers:{'X-Requested-With':'fetch'}});
+  setTimeout(function(){ if(ov) ov.remove(); }, 450);
+}
+</script>
+{% endif %}
+
 {% endif %}
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>

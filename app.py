@@ -27,6 +27,10 @@ def _ensure_schema():
         pending = []
         if 'bet_winnings' not in cols:
             pending.append("ALTER TABLE users ADD COLUMN bet_winnings INTEGER DEFAULT 0")
+        if 'gift_coins' not in cols:
+            pending.append("ALTER TABLE users ADD COLUMN gift_coins INTEGER DEFAULT 0")
+        if 'gift_alert' not in cols:
+            pending.append("ALTER TABLE users ADD COLUMN gift_alert INTEGER DEFAULT 0")
         if pending:
             with db.engine.connect() as conn:
                 for sql in pending:
@@ -95,12 +99,13 @@ def admin_required(f):
 
 @app.context_processor
 def inject_pack_count():
-    ctx = {'pending_packs': 0, 'user_coins': 0, 'PACK_TYPES': PACK_TYPES}
+    ctx = {'pending_packs': 0, 'user_coins': 0, 'gift_alert': 0, 'PACK_TYPES': PACK_TYPES}
     if current_user.is_authenticated:
         try:
             ctx['pending_packs'] = UserPack.query.filter_by(
                 user_id=current_user.id, opened=False).count()
             ctx['user_coins'] = current_user.coins
+            ctx['gift_alert'] = current_user.gift_alert or 0
         except Exception:
             pass
     return ctx
@@ -1463,6 +1468,36 @@ def admin_daily_packs():
     return redirect(url_for('admin_dashboard'))
 
 
+@app.route('/admin/give-coins', methods=['POST'])
+@login_required
+@admin_required
+def admin_give_coins():
+    """Regala N monedas a todos los usuarios y deja un aviso pendiente (una vez)."""
+    try:
+        amount = int(request.form.get('amount') or 0)
+    except ValueError:
+        amount = 0
+    if amount <= 0:
+        flash('Indica una cantidad de monedas válida.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    users = User.query.all()
+    for u in users:
+        u.gift_coins = (u.gift_coins or 0) + amount
+        u.gift_alert = (u.gift_alert or 0) + amount
+    db.session.commit()
+    flash(f'🪙 {amount} monedas regaladas a {len(users)} jugadores.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/gift/ack', methods=['POST'])
+@login_required
+def ack_gift():
+    """Marca el regalo del líder como visto para que la alerta no vuelva a salir."""
+    current_user.gift_alert = 0
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
 # ─── COLECCIÓN DE CROMOS ──────────────────────────────────────────────────────
 
 @app.route('/collection')
@@ -1565,6 +1600,8 @@ if __name__ == '__main__':
         with db.engine.connect() as conn:
             for sql in [
                 "ALTER TABLE users ADD COLUMN bet_winnings INTEGER DEFAULT 0",
+                "ALTER TABLE users ADD COLUMN gift_coins INTEGER DEFAULT 0",
+                "ALTER TABLE users ADD COLUMN gift_alert INTEGER DEFAULT 0",
             ]:
                 try:
                     conn.execute(text(sql))

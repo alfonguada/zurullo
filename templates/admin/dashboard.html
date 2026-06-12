@@ -95,5 +95,22 @@
       </form>
     </div>
   </div>
+
+  <!-- DAR MONEDAS A TODOS -->
+  <div class="settings-card" style="margin-top:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="pixel-text" style="font-size:.45rem;color:var(--muted);margin-bottom:6px">🪙 REGALAR MONEDAS</div>
+        <p style="font-size:.82rem;color:var(--text2)">Suma esta cantidad de monedas a <b>todos</b> los jugadores. Les saldrá una alerta de ofrenda al entrar.</p>
+      </div>
+      <form action="{{ url_for('admin_give_coins') }}" method="POST"
+            style="display:flex;gap:8px;align-items:center"
+            onsubmit="return confirm('¿Regalar ' + this.amount.value + ' monedas a TODOS los jugadores?')">
+        <input type="number" name="amount" min="1" value="50" required
+               style="width:90px;padding:8px;border-radius:8px;border:2px solid var(--accent);background:#0a0a18;color:#fff;font-weight:700;text-align:center">
+        <button type="submit" class="btn-pixel btn-sm" style="background:#ffd700;color:#000">👑 REGALAR</button>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}
