@@ -17,6 +17,28 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+# ── Migración automática de schema ────────────────────────────────────────────
+# Corre en todos los puntos de entrada (WSGI, __main__, worker).
+# SQLite no soporta ALTER TABLE IF NOT EXISTS, así que usamos inspect + try/except.
+def _ensure_schema():
+    from sqlalchemy import text, inspect as _inspect
+    try:
+        cols = {c['name'] for c in _inspect(db.engine).get_columns('users')}
+        pending = []
+        if 'bet_winnings' not in cols:
+            pending.append("ALTER TABLE users ADD COLUMN bet_winnings INTEGER DEFAULT 0")
+        if pending:
+            with db.engine.connect() as conn:
+                for sql in pending:
+                    conn.execute(text(sql))
+                conn.commit()
+    except Exception:
+        pass  # tabla users aún no existe (primera ejecución)
+
+with app.app_context():
+    db.create_all()
+    _ensure_schema()
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Inicia sesión para continuar.'
