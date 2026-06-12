@@ -1,0 +1,359 @@
+{% extends 'base.html' %}
+{% block title %}Casa de Apuestas — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container casa-page">
+
+  <!-- ══ HEADER ══════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div class="pixel-text glow-yellow" style="font-size:.95rem">🎲 CASA DE APUESTAS</div>
+    <a href="{{ url_for('mis_apuestas') }}" class="btn-pixel btn-sm btn-locked">MIS APUESTAS →</a>
+  </div>
+
+  <!-- ══ BALANCE ═════════════════════════════════════════════ -->
+  <div class="bet-balance-card">
+    <div class="bbc-left">
+      <div class="bbc-label pixel-text">SALDO</div>
+      <div class="bbc-amount pixel-text" id="globalCoins">{{ current_user.coins }}</div>
+      <div class="bbc-sub">🪙 monedas</div>
+    </div>
+    <div class="bbc-right">
+      <div class="bbc-stat"><span class="bbc-stat-val" id="activeBetsCount">{{ active_bets|length }}</span><span class="bbc-stat-lbl">ACTIVAS</span></div>
+      <div class="bbc-stat-sep"></div>
+      <div class="bbc-stat"><span class="bbc-stat-val">{{ active_bets|sum(attribute='potential_win') }}</span><span class="bbc-stat-lbl">POT.WIN 🪙</span></div>
+    </div>
+  </div>
+
+  <!-- ══ MERCADOS ACTIVOS ═════════════════════════════════════ -->
+  {% if open_matches %}
+  <div class="section-header" style="margin-bottom:8px">
+    <span class="pixel-text section-title">PARTIDOS EN ABIERTO</span>
+    <span style="font-size:.72rem;color:var(--muted)">{{ open_matches|length }} disponibles</span>
+  </div>
+
+  {% for match in open_matches %}
+  {% set user_bets_match = active_bets | selectattr('match_id', 'equalto', match.id) | list %}
+  <div class="bet-match-card {% if match.double_points %}bmc-double{% endif %}" id="bmc-{{ match.id }}">
+
+    <!-- Match header -->
+    <div class="bmc-header" onclick="toggleMarkets({{ match.id }})">
+      <div class="bmc-teams">
+        <div class="bmc-team">
+          <span class="bmc-flag">{{ flag(match.team1) }}</span>
+          <span class="bmc-name">{{ match.team1.name }}</span>
+        </div>
+        <div class="bmc-vs pixel-text">VS</div>
+        <div class="bmc-team bmc-team-r">
+          <span class="bmc-name">{{ match.team2.name }}</span>
+          <span class="bmc-flag">{{ flag(match.team2) }}</span>
+        </div>
+      </div>
+      <div class="bmc-meta">
+        <span class="bmc-date">{{ match.match_date.strftime('%d/%m %H:%M') }}</span>
+        {% if match.double_points %}<span class="double-tag">×2 🇪🇸</span>{% endif %}
+        {% if user_bets_match %}<span class="bmc-has-bet">✓ {{ user_bets_match|length }} apuesta{{ 's' if user_bets_match|length > 1 }}</span>{% endif %}
+        <span class="bmc-toggle" id="toggle-{{ match.id }}">▼ APOSTAR</span>
+      </div>
+    </div>
+
+    <!-- Markets panel (hidden by default) -->
+    <div class="bmc-markets hidden" id="markets-{{ match.id }}"
+         data-match="{{ match.id }}"
+         data-t1="{{ match.team1.name }}" data-t2="{{ match.team2.name }}">
+
+      <!-- Loading state -->
+      <div class="bmc-loading" id="loading-{{ match.id }}">
+        <span class="pixel-text" style="font-size:.4rem;color:var(--muted)">Cargando cuotas...</span>
+      </div>
+
+      <!-- Markets (populated by JS) -->
+      <div id="market-content-{{ match.id }}" class="hidden">
+
+        {% for mk, cfg in MARKETS.items() %}
+        {% set user_bet_mk = active_bets | selectattr('match_id', 'equalto', match.id) | selectattr('market', 'equalto', mk) | list | first | default(None) %}
+        <div class="market-block {% if user_bet_mk %}market-done{% endif %}" id="mb-{{ match.id }}-{{ mk }}" data-market="{{ mk }}">
+          <div class="market-header">
+            <span class="market-icon">{{ cfg.icon }}</span>
+            <span class="market-name pixel-text">{{ cfg.name }}</span>
+            {% if user_bet_mk %}
+            <span class="market-placed-badge">
+              ✓ {{ user_bet_mk.outcome_label }} @ {{ user_bet_mk.odds }} · {{ user_bet_mk.amount }}🪙
+            </span>
+            {% endif %}
+          </div>
+
+          {% if not user_bet_mk %}
+          <div class="odds-row" id="odds-row-{{ match.id }}-{{ mk }}">
+            {% for outcome in cfg.outcomes %}
+            <button class="odds-btn"
+                    id="ob-{{ match.id }}-{{ mk }}-{{ outcome }}"
+                    data-match="{{ match.id }}" data-market="{{ mk }}" data-outcome="{{ outcome }}"
+                    onclick="selectOdds(this)">
+              <span class="ob-label">{{ cfg.labels[outcome] }}</span>
+              <span class="ob-odds pixel-text" id="odd-{{ match.id }}-{{ mk }}-{{ outcome }}">
+                {{ odds_map[match.id][mk][outcome] }}
+              </span>
+            </button>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+        <!-- BET SLIP (inline) -->
+        <div class="bet-slip hidden" id="slip-{{ match.id }}">
+          <div class="slip-selection" id="slip-sel-{{ match.id }}"></div>
+          <div class="slip-amounts">
+            {% for v in [10, 25, 50, 100, 200] %}
+            <button class="slip-amt-btn" onclick="setAmount({{ match.id }}, {{ v }})">{{ v }}</button>
+            {% endfor %}
+            <button class="slip-amt-btn slip-allin" onclick="setAmountAll({{ match.id }})">MAX</button>
+          </div>
+          <div class="slip-input-row">
+            <span class="pixel-text" style="font-size:.4rem;color:var(--muted)">🪙</span>
+            <input type="number" class="slip-input" id="slip-amount-{{ match.id }}"
+                   min="10" max="1000" value="50"
+                   oninput="updatePotential({{ match.id }})">
+            <div class="slip-potential">
+              <div class="slip-pot-lbl pixel-text">GANAS</div>
+              <div class="slip-pot-val pixel-text" id="slip-pot-{{ match.id }}">—</div>
+            </div>
+          </div>
+          <button class="slip-confirm-btn" id="slip-btn-{{ match.id }}"
+                  onclick="confirmBet({{ match.id }})">
+            <span class="pixel-text" style="font-size:.42rem">CONFIRMAR APUESTA</span>
+          </button>
+          <button class="slip-cancel-btn" onclick="cancelBet({{ match.id }})">cancelar</button>
+        </div>
+
+      </div>{# /market-content #}
+    </div>{# /bmc-markets #}
+  </div>{# /bet-match-card #}
+  {% endfor %}
+
+  {% else %}
+  <div class="empty-state">No hay partidos disponibles para apostar ahora mismo.</div>
+  {% endif %}
+
+  <!-- ══ APUESTAS ACTIVAS ═══════════════════════════════════ -->
+  {% if active_bets %}
+  <div class="section-header" style="margin-top:24px;margin-bottom:8px">
+    <span class="pixel-text section-title">MIS APUESTAS ACTIVAS</span>
+  </div>
+  <div class="active-bets-list">
+    {% for b in active_bets %}
+    <div class="abet-row">
+      <div class="abet-match">
+        {{ flag(b.match.team1) }} {{ b.match.team1.name[:6] }} vs {{ b.match.team2.name[:6] }} {{ flag(b.match.team2) }}
+      </div>
+      <div class="abet-market pixel-text">{{ b.market_label }}</div>
+      <div class="abet-outcome">{{ b.outcome_label }}</div>
+      <div class="abet-odds pixel-text">@ {{ b.odds }}</div>
+      <div class="abet-stake">{{ b.amount }}🪙</div>
+      <div class="abet-potential glow-green pixel-text">→ {{ b.potential_win }}🪙</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ══ ÚLTIMOS RESULTADOS ════════════════════════════════════ -->
+  {% if recent_bets %}
+  <div class="section-header" style="margin-top:24px;margin-bottom:8px">
+    <span class="pixel-text section-title">ÚLTIMAS LIQUIDADAS</span>
+    <a href="{{ url_for('mis_apuestas') }}" class="section-link">VER TODO →</a>
+  </div>
+  <div class="active-bets-list">
+    {% for b in recent_bets %}
+    <div class="abet-row abet-{{ b.result }}">
+      <div class="abet-match">
+        {{ flag(b.match.team1) }} {{ b.match.team1.name[:6] }} vs {{ b.match.team2.name[:6] }} {{ flag(b.match.team2) }}
+      </div>
+      <div class="abet-outcome">{{ b.outcome_label }}</div>
+      <div class="abet-odds pixel-text">@ {{ b.odds }}</div>
+      {% if b.result == 'won' %}
+      <div class="abet-result-badge won">✓ +{{ b.potential_win }}🪙</div>
+      {% else %}
+      <div class="abet-result-badge lost">✗ -{{ b.amount }}🪙</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const userCoins = parseInt(document.getElementById('globalCoins').textContent);
+let currentCoins = userCoins;
+
+// Estado del bet slip por partido
+const slipState = {};  // matchId -> {market, outcome, odds, label}
+
+function toggleMarkets(matchId) {
+  const panel = document.getElementById('markets-' + matchId);
+  const toggle = document.getElementById('toggle-' + matchId);
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+    toggle.textContent = '▲ CERRAR';
+    loadOdds(matchId);
+  } else {
+    panel.classList.add('hidden');
+    toggle.textContent = '▼ APOSTAR';
+  }
+}
+
+function loadOdds(matchId) {
+  const loading = document.getElementById('loading-' + matchId);
+  const content = document.getElementById('market-content-' + matchId);
+  if (!content.classList.contains('hidden')) return; // already loaded
+
+  fetch('/api/casa/odds/' + matchId)
+    .then(r => r.json())
+    .then(data => {
+      if (data.locked) {
+        loading.innerHTML = '<div class="pixel-text" style="font-size:.38rem;color:var(--secondary);padding:12px">🔒 Apuestas cerradas para este partido.</div>';
+        return;
+      }
+      // Update odds in DOM
+      Object.entries(data.odds).forEach(([market, outcomes]) => {
+        Object.entries(outcomes).forEach(([outcome, odds]) => {
+          const el = document.getElementById('odd-' + matchId + '-' + market + '-' + outcome);
+          if (el) el.textContent = odds;
+        });
+      });
+      // Mark already-bet markets
+      if (data.user_bets) {
+        Object.entries(data.user_bets).forEach(([market, bet]) => {
+          const mb = document.getElementById('mb-' + matchId + '-' + market);
+          if (mb) mb.classList.add('market-done');
+        });
+      }
+      loading.classList.add('hidden');
+      content.classList.remove('hidden');
+    })
+    .catch(() => {
+      loading.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:10px">Error cargando cuotas.</div>';
+    });
+}
+
+function selectOdds(btn) {
+  const matchId = parseInt(btn.dataset.match);
+  const market  = btn.dataset.market;
+  const outcome = btn.dataset.outcome;
+  const odds    = parseFloat(btn.querySelector('.ob-odds').textContent);
+  const label   = btn.querySelector('.ob-label').textContent;
+
+  // Deselect siblings
+  const oddsRow = document.getElementById('odds-row-' + matchId + '-' + market);
+  if (oddsRow) oddsRow.querySelectorAll('.odds-btn').forEach(b => b.classList.remove('selected'));
+
+  // If re-clicking same → deselect and hide slip
+  if (slipState[matchId] && slipState[matchId].market === market && slipState[matchId].outcome === outcome) {
+    delete slipState[matchId];
+    hideBetSlip(matchId);
+    return;
+  }
+
+  btn.classList.add('selected');
+  slipState[matchId] = { market, outcome, odds, label };
+  showBetSlip(matchId, market, outcome, odds, label);
+}
+
+function showBetSlip(matchId, market, outcome, odds, label) {
+  const slip = document.getElementById('slip-' + matchId);
+  const sel  = document.getElementById('slip-sel-' + matchId);
+  const marketNames = {'1x2': 'Ganador', 'goals25': '+2.5 Goles', 'btts': 'Ambos Marcan'};
+  sel.innerHTML = `<span class="slip-market">${marketNames[market] || market}</span>
+                   <span class="slip-pick">${label}</span>
+                   <span class="slip-odd pixel-text">${odds}</span>`;
+  slip.classList.remove('hidden');
+  updatePotential(matchId);
+  slip.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideBetSlip(matchId) {
+  document.getElementById('slip-' + matchId).classList.add('hidden');
+}
+
+function setAmount(matchId, val) {
+  const inp = document.getElementById('slip-amount-' + matchId);
+  inp.value = Math.min(val, currentCoins, 1000);
+  updatePotential(matchId);
+}
+
+function setAmountAll(matchId) {
+  setAmount(matchId, Math.min(currentCoins, 1000));
+}
+
+function updatePotential(matchId) {
+  const inp  = document.getElementById('slip-amount-' + matchId);
+  const pot  = document.getElementById('slip-pot-' + matchId);
+  const st   = slipState[matchId];
+  if (!st || !inp.value) { pot.textContent = '—'; return; }
+  const amount = parseInt(inp.value) || 0;
+  pot.textContent = Math.floor(amount * st.odds) + ' 🪙';
+}
+
+function cancelBet(matchId) {
+  const st = slipState[matchId];
+  if (st) {
+    const btn = document.getElementById('ob-' + matchId + '-' + st.market + '-' + st.outcome);
+    if (btn) btn.classList.remove('selected');
+    delete slipState[matchId];
+  }
+  hideBetSlip(matchId);
+}
+
+function confirmBet(matchId) {
+  const st = slipState[matchId];
+  if (!st) return;
+  const amount = parseInt(document.getElementById('slip-amount-' + matchId).value) || 0;
+  if (amount < 10) { showFlash('Mínimo 10 🪙 por apuesta.', 'error'); return; }
+  if (amount > currentCoins) { showFlash('No tienes suficientes monedas.', 'error'); return; }
+
+  const btn = document.getElementById('slip-btn-' + matchId);
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'APOSTANDO...';
+
+  fetch('/casa/apostar', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      match_id: matchId, market: st.market,
+      outcome: st.outcome, amount: amount
+    })
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      currentCoins = data.coins;
+      document.getElementById('globalCoins').textContent = currentCoins;
+      // Mark market as done
+      const mb = document.getElementById('mb-' + matchId + '-' + st.market);
+      if (mb) {
+        mb.classList.add('market-done');
+        const placed = document.createElement('div');
+        placed.className = 'market-placed-badge';
+        placed.textContent = '✓ ' + st.label + ' @ ' + data.odds + ' · ' + amount + '🪙';
+        mb.querySelector('.market-header').appendChild(placed);
+        const oddsRow = document.getElementById('odds-row-' + matchId + '-' + st.market);
+        if (oddsRow) oddsRow.remove();
+      }
+      hideBetSlip(matchId);
+      delete slipState[matchId];
+      showFlash('✓ Apuesta de ' + amount + '🪙 registrada. Ganas ' + data.potential + '🪙 si aciertas.', 'success');
+      // Increment active bets counter
+      const cnt = document.getElementById('activeBetsCount');
+      if (cnt) cnt.textContent = (parseInt(cnt.textContent) || 0) + 1;
+    } else {
+      showFlash(data.error || 'Error al apostar.', 'error');
+      btn.disabled = false;
+      btn.querySelector('span').textContent = 'CONFIRMAR APUESTA';
+    }
+  }).catch(() => {
+    showFlash('Error de red.', 'error');
+    btn.disabled = false;
+    btn.querySelector('span').textContent = 'CONFIRMAR APUESTA';
+  });
+}
+</script>
+{% endblock %}

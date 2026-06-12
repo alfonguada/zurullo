@@ -25,6 +25,7 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     coins_spent  = db.Column(db.Integer, default=0)
+    bet_winnings = db.Column(db.Integer, default=0)  # monedas ganadas en apuestas
 
     predictions  = db.relationship('Prediction', back_populates='user', lazy='dynamic')
     bonus        = db.relationship('BonusPrediction', back_populates='user', uselist=False)
@@ -79,7 +80,7 @@ class User(UserMixin, db.Model):
 
     @property
     def coins(self):
-        return max(0, self.coins_earned - (self.coins_spent or 0))
+        return max(0, self.coins_earned + (self.bet_winnings or 0) - (self.coins_spent or 0))
 
     @property
     def exact_scores(self):
@@ -262,3 +263,37 @@ class UserPack(db.Model):
     source     = db.Column(db.String(100), default='')  # previene dobles entregas
 
     user = db.relationship('User', back_populates='packs')
+
+
+class Bet(db.Model):
+    """Apuesta de un usuario en un mercado de un partido."""
+    __tablename__ = 'bets'
+    id            = db.Column(db.Integer, primary_key=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    match_id      = db.Column(db.Integer, db.ForeignKey('matches.id'), nullable=False)
+    market        = db.Column(db.String(20), nullable=False)  # '1x2' | 'goals25' | 'btts'
+    outcome       = db.Column(db.String(10), nullable=False)  # '1'|'X'|'2'|'over'|'under'|'yes'|'no'
+    amount        = db.Column(db.Integer, nullable=False)     # monedas apostadas
+    odds          = db.Column(db.Float,   nullable=False)     # cuota al apostar
+    potential_win = db.Column(db.Integer, nullable=False)     # ganancia potencial (amount*odds)
+    result        = db.Column(db.String(10))                  # None=pendiente 'won' 'lost' 'void'
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    settled_at    = db.Column(db.DateTime)
+
+    user  = db.relationship('User',  backref=db.backref('bets', lazy='dynamic'))
+    match = db.relationship('Match', backref=db.backref('bets', lazy='dynamic'))
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'match_id', 'market',
+                                          name='uq_bet_user_match_market'),)
+
+    @property
+    def market_label(self):
+        return {'1x2': 'Ganador', 'goals25': '+2.5 Goles', 'btts': 'Ambos Marcan'}.get(self.market, self.market)
+
+    @property
+    def outcome_label(self):
+        return {
+            '1': '1 (local)', 'X': 'Empate', '2': '2 (visitante)',
+            'over': 'Más de 2.5', 'under': 'Menos de 2.5',
+            'yes': 'Sí', 'no': 'No',
+        }.get(self.outcome, self.outcome)

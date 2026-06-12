@@ -1609,6 +1609,202 @@ body {
 .dnl-admin.active { background: rgba(238,0,85,.25) !important; }
 
 /* ══════════════════════════════════════════════
+   CASA DE APUESTAS
+   ══════════════════════════════════════════════ */
+.casa-page { max-width: 820px; }
+
+/* ── Balance card ── */
+.bet-balance-card {
+  background: linear-gradient(135deg, #0d1a00, #1a2e00);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius); padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; position: relative; overflow: hidden;
+  box-shadow: 0 0 24px rgba(0,187,85,.15);
+}
+.bet-balance-card::before {
+  content: ''; position: absolute; right: -20px; top: -20px;
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,187,85,.12), transparent 70%);
+  pointer-events: none;
+}
+.bbc-label  { font-size: .38rem; color: var(--primary); margin-bottom: 4px; }
+.bbc-amount { font-size: 2rem; color: #fff; text-shadow: 0 0 16px var(--primary); line-height: 1; }
+.bbc-sub    { font-size: .72rem; color: var(--muted); margin-top: 4px; }
+.bbc-right  { display: flex; align-items: center; gap: 16px; }
+.bbc-stat   { text-align: center; }
+.bbc-stat-val { font-family: 'Press Start 2P', monospace; font-size: .85rem; color: var(--accent); display: block; }
+.bbc-stat-lbl { font-size: .45rem; color: var(--muted); display: block; margin-top: 3px; }
+.bbc-stat-sep { width: 1px; height: 36px; background: rgba(255,255,255,.1); }
+
+/* ── Match card ── */
+.bet-match-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+  transition: box-shadow .2s;
+}
+.bet-match-card:hover { box-shadow: 0 4px 20px rgba(0,187,85,.08); }
+.bmc-double { border-left: 3px solid var(--accent); }
+
+.bmc-header {
+  padding: 12px 14px; cursor: pointer;
+  user-select: none; -webkit-user-select: none;
+  transition: background .1s;
+}
+.bmc-header:active { background: var(--surface2); }
+
+.bmc-teams { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bmc-team  { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.bmc-team-r { flex-direction: row-reverse; }
+.bmc-name  { font-size: .88rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bmc-flag  { flex-shrink: 0; }
+.bmc-vs    { font-size: .42rem; color: var(--muted); min-width: 28px; text-align: center; }
+
+.bmc-meta  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bmc-date  { font-size: .72rem; color: var(--muted); }
+.bmc-has-bet { font-size: .65rem; font-weight: 700; color: var(--primary); background: rgba(0,187,85,.1); padding: 2px 7px; border-radius: 4px; }
+.bmc-toggle { font-family: 'Press Start 2P', monospace; font-size: .38rem; color: var(--accent); margin-left: auto; cursor: pointer; }
+
+/* ── Markets panel ── */
+.bmc-markets { border-top: 1px solid var(--border); padding: 12px 14px; background: var(--surface2); }
+.bmc-loading { padding: 12px; text-align: center; }
+
+.market-block {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px; margin-bottom: 8px; background: var(--surface);
+  transition: opacity .2s;
+}
+.market-done { opacity: .7; }
+.market-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.market-icon   { font-size: 1rem; }
+.market-name   { font-size: .42rem; color: var(--muted); flex: 1; }
+.market-placed-badge {
+  font-size: .62rem; font-weight: 700; color: var(--primary);
+  background: rgba(0,187,85,.1); border: 1px solid rgba(0,187,85,.3);
+  padding: 2px 8px; border-radius: 4px; margin-left: auto;
+}
+
+/* ── Odds buttons ── */
+.odds-row { display: flex; gap: 7px; flex-wrap: nowrap; }
+.odds-btn {
+  flex: 1; min-width: 0; padding: 9px 6px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  transition: all .12s; touch-action: manipulation;
+}
+.odds-btn:hover { border-color: var(--accent); background: rgba(240,160,0,.06); }
+.odds-btn:active, .odds-btn.selected {
+  border-color: var(--accent); background: rgba(240,160,0,.12);
+  box-shadow: 0 0 10px rgba(240,160,0,.25);
+}
+.ob-label { font-size: .65rem; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ob-odds  { font-size: .75rem; color: var(--accent); }
+.odds-btn.selected .ob-odds { color: var(--accent); text-shadow: 0 0 8px rgba(240,160,0,.6); }
+
+/* ── Bet slip ── */
+.bet-slip {
+  border: 1.5px solid var(--accent); border-radius: var(--radius-sm);
+  padding: 12px 14px; margin-top: 8px; background: rgba(240,160,0,.04);
+  animation: fadeUp .2s ease;
+}
+.slip-selection {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(240,160,0,.2);
+}
+.slip-market { font-size: .4rem; font-family: 'Press Start 2P', monospace; color: var(--muted); }
+.slip-pick   { font-size: .82rem; font-weight: 800; color: var(--text); flex: 1; }
+.slip-odd    { font-size: .75rem; color: var(--accent); }
+
+.slip-amounts { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.slip-amt-btn {
+  padding: 6px 10px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: .78rem; font-weight: 700;
+  cursor: pointer; color: var(--text); transition: all .1s; touch-action: manipulation;
+}
+.slip-amt-btn:hover, .slip-amt-btn:active { border-color: var(--primary); color: var(--primary); background: rgba(0,187,85,.06); }
+.slip-allin { border-color: var(--secondary); color: var(--secondary); }
+.slip-allin:hover { background: rgba(238,0,85,.06); }
+
+.slip-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.slip-input {
+  width: 100px; padding: 9px 10px; background: var(--surface);
+  border: 1.5px solid var(--border); color: var(--text);
+  border-radius: var(--radius-sm); font-size: 1rem; font-weight: 700;
+  -moz-appearance: textfield; -webkit-appearance: none; appearance: none;
+  outline: none; transition: border-color .15s;
+}
+.slip-input::-webkit-inner-spin-button, .slip-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.slip-input:focus { border-color: var(--accent); }
+.slip-potential { flex: 1; text-align: right; }
+.slip-pot-lbl   { font-size: .38rem; color: var(--muted); margin-bottom: 3px; }
+.slip-pot-val   { font-size: .85rem; color: var(--primary); }
+
+.slip-confirm-btn {
+  width: 100%; padding: 12px; border: 2px solid var(--primary);
+  background: var(--primary); color: #000; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all .1s; margin-bottom: 6px;
+  touch-action: manipulation;
+}
+.slip-confirm-btn:hover  { background: #00e066; border-color: #00e066; }
+.slip-confirm-btn:active { transform: scale(.97); }
+.slip-confirm-btn:disabled { opacity: .5; cursor: not-allowed; }
+.slip-cancel-btn {
+  display: block; width: 100%; text-align: center;
+  font-size: .72rem; color: var(--muted); background: none;
+  border: none; cursor: pointer; padding: 4px; touch-action: manipulation;
+}
+
+/* ── Active bets list ── */
+.active-bets-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.abet-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: .78rem;
+}
+.abet-won  { border-color: rgba(0,187,85,.4); background: rgba(0,187,85,.04); }
+.abet-lost { border-color: rgba(238,0,85,.4); background: rgba(238,0,85,.04); opacity: .75; }
+.abet-match  { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.abet-market { font-size: .38rem; color: var(--muted); }
+.abet-outcome { font-size: .78rem; font-weight: 700; }
+.abet-odds   { font-size: .52rem; color: var(--accent); }
+.abet-stake  { font-size: .72rem; color: var(--muted); }
+.abet-potential { font-size: .55rem; }
+.abet-result-badge { font-size: .48rem; padding: 3px 8px; border-radius: 4px; }
+.abet-result-badge.won  { background: rgba(0,187,85,.15); color: var(--primary); border: 1px solid var(--primary); }
+.abet-result-badge.lost { background: rgba(238,0,85,.1);  color: var(--secondary); border: 1px solid var(--secondary); }
+
+/* ── Full bets list (mis-apuestas page) ── */
+.bets-full-list { display: flex; flex-direction: column; gap: 8px; }
+.bet-full-row {
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.bet-pending { border-left: 3px solid var(--accent); }
+.bet-won  { border-left: 3px solid var(--primary); }
+.bet-lost { border-left: 3px solid var(--secondary); opacity: .8; }
+.bfr-teams  { display: flex; align-items: center; gap: 8px; font-size: .82rem; font-weight: 600; flex-wrap: wrap; }
+.bfr-vs     { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bfr-result { font-size: .52rem; color: var(--primary); }
+.bfr-detail { display: flex; align-items: center; gap: 10px; }
+.bfr-market { font-size: .38rem; color: var(--muted); }
+.bfr-outcome { font-size: .82rem; font-weight: 700; color: var(--text2); }
+.bfr-numbers { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bfr-odds   { font-size: .52rem; color: var(--accent); }
+.bfr-amount { font-size: .78rem; color: var(--muted); }
+.bfr-potential { font-size: .55rem; }
+.bfr-badge-won  { font-size: .52rem; background: rgba(0,187,85,.12); color: var(--primary); padding: 3px 9px; border-radius: 4px; border: 1px solid var(--primary); }
+.bfr-badge-lost { font-size: .52rem; background: rgba(238,0,85,.1); color: var(--secondary); padding: 3px 9px; border-radius: 4px; border: 1px solid var(--secondary); }
+
+@media (min-width: 600px) {
+  .bet-full-row { flex-direction: row; align-items: center; }
+  .bfr-teams { flex: 2; }
+  .bfr-detail { flex: 1; }
+}
+
+/* ══════════════════════════════════════════════
    STATS PAGE
    ══════════════════════════════════════════════ */
 .stats-page { max-width: 1200px; }

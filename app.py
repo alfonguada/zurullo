@@ -7,7 +7,7 @@ from collections import defaultdict
 import os
 
 import random
-from models import db, User, Team, Match, Prediction, BonusPrediction, ExtraBonusPrediction, WorstTeamAssignment, TournamentSettings, Player, UserCard, UserPack
+from models import db, User, Team, Match, Prediction, BonusPrediction, ExtraBonusPrediction, WorstTeamAssignment, TournamentSettings, Player, UserCard, UserPack, Bet
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zurullo-wc-2026-secret')
@@ -108,6 +108,7 @@ def recalc_match(match):
                                          match.any_double)
         if pred.points_earned in (3, 6):
             _grant_pack_no_commit(pred.user, 'standard', source=f'exact_{pred.id}')
+    settle_match_bets(match)
 
 
 # ─── HELPERS: STREAKS & ACHIEVEMENTS ─────────────────────────────────────────
@@ -276,6 +277,92 @@ PACK_TYPES = {
         'guaranteed': 'epic',
     },
 }
+
+# ─── BETTING MARKETS ──────────────────────────────────────────────────────────
+
+BETTING_MARKETS = {
+    '1x2': {
+        'name': 'Ganador',
+        'icon': '🏆',
+        'outcomes': ['1', 'X', '2'],
+        'labels': {'1': 'Local', 'X': 'Empate', '2': 'Visitante'},
+        'base_probs': {'1': 0.395, 'X': 0.270, '2': 0.335},
+        'margin': 1.065,
+    },
+    'goals25': {
+        'name': '+2.5 Goles',
+        'icon': '⚽',
+        'outcomes': ['over', 'under'],
+        'labels': {'over': 'Más de 2.5', 'under': 'Menos de 2.5'},
+        'base_probs': {'over': 0.524, 'under': 0.476},
+        'margin': 1.040,
+    },
+    'btts': {
+        'name': 'Ambos Marcan',
+        'icon': '🎯',
+        'outcomes': ['yes', 'no'],
+        'labels': {'yes': 'Sí', 'no': 'No'},
+        'base_probs': {'yes': 0.524, 'under': 0.476},  # 'under' key kept for compat
+        'margin': 1.040,
+    },
+}
+# Corrección clave btts
+BETTING_MARKETS['btts']['base_probs'] = {'yes': 0.524, 'no': 0.476}
+
+
+def calc_live_odds(match_id, market):
+    """Calcula cuotas en vivo para un mercado según el dinero apostado."""
+    cfg = BETTING_MARKETS[market]
+    base_probs = cfg['base_probs']
+    margin = cfg['margin']
+    outcomes = cfg['outcomes']
+
+    bets = Bet.query.filter_by(match_id=match_id, market=market).all()
+    total_wagered = sum(b.amount for b in bets)
+    wagered = {o: sum(b.amount for b in bets if b.outcome == o) for o in outcomes}
+
+    # Probabilidad mezclada: 65% base + 35% mercado (solo si hay suficiente volumen)
+    blended = {}
+    for o in outcomes:
+        bp = base_probs[o]
+        if total_wagered >= 50:
+            mp = wagered[o] / total_wagered
+            blended[o] = 0.65 * bp + 0.35 * mp
+        else:
+            blended[o] = bp
+
+    total_blended = sum(blended.values())
+    result = {}
+    for o in outcomes:
+        prob = (blended[o] / total_blended) * margin
+        result[o] = round(max(1.05, min(15.0, 1.0 / prob)), 2)
+    return result
+
+
+def settle_match_bets(match):
+    """Liquida automáticamente todas las apuestas de un partido."""
+    if not match.result_entered:
+        return
+    g1, g2 = match.goals1, match.goals2
+    total_goals = g1 + g2
+    winning_outcomes = {
+        '1x2':    '1' if g1 > g2 else ('X' if g1 == g2 else '2'),
+        'goals25': 'over' if total_goals > 2.5 else 'under',
+        'btts':    'yes' if (g1 > 0 and g2 > 0) else 'no',
+    }
+    pending = Bet.query.filter_by(match_id=match.id, result=None).all()
+    for bet in pending:
+        correct = winning_outcomes.get(bet.market)
+        if correct is None:
+            continue
+        if bet.outcome == correct:
+            bet.result = 'won'
+            bet.user.bet_winnings = (bet.user.bet_winnings or 0) + bet.potential_win
+        else:
+            bet.result = 'lost'
+        bet.settled_at = datetime.utcnow()
+    # No commit here — caller commits
+
 
 # ─── PACK HELPERS ─────────────────────────────────────────────────────────────
 
@@ -537,6 +624,128 @@ def predict(match_id):
         pred.points_earned = calc_points(g1, g2, match.goals1, match.goals2, match.double_points)
     db.session.commit()
     return jsonify({'ok': True, 'g1': g1, 'g2': g2})
+
+
+# ─── CASA DE APUESTAS ─────────────────────────────────────────────────────────
+
+@app.route('/casa')
+@login_required
+def casa():
+    if not current_user.onboarding_done:
+        return redirect(url_for('onboarding'))
+    now = datetime.utcnow()
+    open_matches = (Match.query
+                    .filter(Match.is_locked == False, Match.goals1.is_(None))
+                    .order_by(Match.match_date).limit(20).all())
+    locked_noresult = (Match.query
+                       .filter(Match.is_locked == True, Match.goals1.is_(None))
+                       .order_by(Match.match_date).all())
+    recent = (Match.query
+              .filter(Match.goals1.isnot(None))
+              .order_by(Match.match_date.desc()).limit(6).all())
+
+    # Cuotas base para los partidos abiertos
+    odds_map = {}
+    for m in open_matches:
+        odds_map[m.id] = {mk: calc_live_odds(m.id, mk) for mk in BETTING_MARKETS}
+
+    # Apuestas activas del usuario en partidos aún no liquidados
+    active_bets = (Bet.query
+                   .filter_by(user_id=current_user.id, result=None)
+                   .join(Match)
+                   .order_by(Match.match_date)
+                   .all())
+    # Últimas 5 apuestas liquidadas
+    recent_bets = (Bet.query
+                   .filter(Bet.user_id == current_user.id, Bet.result.isnot(None))
+                   .order_by(Bet.settled_at.desc()).limit(5).all())
+
+    return render_template('casa.html',
+        open_matches=open_matches,
+        locked_noresult=locked_noresult,
+        recent_results=recent,
+        odds_map=odds_map,
+        MARKETS=BETTING_MARKETS,
+        active_bets=active_bets,
+        recent_bets=recent_bets,
+    )
+
+
+@app.route('/casa/apostar', methods=['POST'])
+@login_required
+def place_bet():
+    match_id = request.form.get('match_id', type=int)
+    market   = request.form.get('market', '')
+    outcome  = request.form.get('outcome', '')
+    amount   = request.form.get('amount', type=int, default=0)
+
+    if market not in BETTING_MARKETS:
+        return jsonify({'error': 'Mercado inválido.'}), 400
+    if outcome not in BETTING_MARKETS[market]['outcomes']:
+        return jsonify({'error': 'Resultado inválido.'}), 400
+    if not (10 <= amount <= 1000):
+        return jsonify({'error': 'Importe entre 10 y 1.000 🪙.'}), 400
+
+    match = Match.query.get_or_404(match_id)
+    if match.is_locked:
+        return jsonify({'error': 'El partido ya empezó, apuestas cerradas.'}), 400
+    if current_user.coins < amount:
+        return jsonify({'error': f'No tienes suficientes monedas ({current_user.coins}🪙).'}), 400
+
+    if Bet.query.filter_by(user_id=current_user.id, match_id=match_id, market=market).first():
+        return jsonify({'error': 'Ya tienes una apuesta activa en este mercado.'}), 400
+
+    odds = calc_live_odds(match_id, market)[outcome]
+    potential = int(amount * odds)
+
+    current_user.coins_spent = (current_user.coins_spent or 0) + amount
+    db.session.add(Bet(
+        user_id=current_user.id, match_id=match_id,
+        market=market, outcome=outcome,
+        amount=amount, odds=odds, potential_win=potential,
+    ))
+    db.session.commit()
+    return jsonify({
+        'ok': True, 'odds': odds, 'potential': potential,
+        'coins': current_user.coins,
+    })
+
+
+@app.route('/api/casa/odds/<int:match_id>')
+@login_required
+def api_betting_odds(match_id):
+    match = Match.query.get_or_404(match_id)
+    if match.is_locked:
+        return jsonify({'locked': True})
+    odds = {mk: calc_live_odds(match_id, mk) for mk in BETTING_MARKETS}
+    user_bets = {
+        b.market: {'outcome': b.outcome, 'amount': b.amount,
+                   'odds': b.odds, 'potential': b.potential_win}
+        for b in Bet.query.filter_by(user_id=current_user.id, match_id=match_id).all()
+    }
+    return jsonify({'odds': odds, 'user_bets': user_bets, 'coins': current_user.coins})
+
+
+@app.route('/casa/mis-apuestas')
+@login_required
+def mis_apuestas():
+    if not current_user.onboarding_done:
+        return redirect(url_for('onboarding'))
+    bets = (Bet.query
+            .filter_by(user_id=current_user.id)
+            .join(Match).order_by(Bet.created_at.desc()).all())
+    pending = [b for b in bets if b.result is None]
+    won     = [b for b in bets if b.result == 'won']
+    lost    = [b for b in bets if b.result == 'lost']
+    total_wagered = sum(b.amount for b in bets)
+    total_won     = sum(b.potential_win for b in won)
+    total_lost    = sum(b.amount for b in lost)
+    roi = round((total_won - total_wagered) / total_wagered * 100, 1) if total_wagered > 0 else 0
+    return render_template('mis_apuestas.html',
+        bets=bets, pending=pending, won=won, lost=lost,
+        total_wagered=total_wagered, total_won=total_won,
+        total_lost=total_lost, roi=roi,
+    )
 
 
 @app.route('/stats')
@@ -1329,6 +1538,17 @@ if __name__ == '__main__':
         if not TournamentSettings.query.first():
             db.session.add(TournamentSettings())
             db.session.commit()
+        # Migración SQLite: añadir columnas nuevas si no existen
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            for sql in [
+                "ALTER TABLE users ADD COLUMN bet_winnings INTEGER DEFAULT 0",
+            ]:
+                try:
+                    conn.execute(text(sql))
+                    conn.commit()
+                except Exception:
+                    pass  # columna ya existe
         print('Base de datos lista.')
     print('ZURULLO WORLD CUP arrancando en http://localhost:5000')
     app.run(debug=True, host='0.0.0.0', port=5000)

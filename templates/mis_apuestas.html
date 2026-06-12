@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}Mis Apuestas — Zurullo WC{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div class="pixel-text glow-yellow" style="font-size:.9rem">🎰 MIS APUESTAS</div>
+    <a href="{{ url_for('casa') }}" class="btn-pixel btn-sm">← CASA</a>
+  </div>
+
+  <!-- Resumen -->
+  <div class="stats-kpi-grid" style="margin-bottom:20px">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-val">{{ bets|length }}</div>
+      <div class="kpi-lbl">TOTAL<br>APUESTAS</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">✓</div>
+      <div class="kpi-val">{{ won|length }}</div>
+      <div class="kpi-lbl">GANADAS</div>
+    </div>
+    <div class="kpi-card kpi-pink">
+      <div class="kpi-icon">✗</div>
+      <div class="kpi-val">{{ lost|length }}</div>
+      <div class="kpi-lbl">PERDIDAS</div>
+    </div>
+    <div class="kpi-card {% if roi >= 0 %}kpi-green{% else %}kpi-pink{% endif %}">
+      <div class="kpi-icon">📈</div>
+      <div class="kpi-val">{{ roi }}%</div>
+      <div class="kpi-lbl">ROI</div>
+    </div>
+  </div>
+
+  {% if not bets %}
+  <div class="empty-state">
+    <div style="font-size:3rem;margin-bottom:12px">🎲</div>
+    Aún no has hecho ninguna apuesta.<br>
+    <a href="{{ url_for('casa') }}" class="btn-pixel btn-sm" style="margin-top:16px;display:inline-block">IR A LA CASA →</a>
+  </div>
+  {% else %}
+
+  <!-- Pendientes -->
+  {% if pending %}
+  <div class="section-header" style="margin-bottom:8px">
+    <span class="pixel-text section-title">⏳ PENDIENTES ({{ pending|length }})</span>
+  </div>
+  <div class="bets-full-list">
+    {% for b in pending %}
+    <div class="bet-full-row bet-pending">
+      <div class="bfr-teams">
+        {{ flag(b.match.team1) }}
+        <span class="bfr-vs">{{ b.match.team1.name }} vs {{ b.match.team2.name }}</span>
+        {{ flag(b.match.team2) }}
+      </div>
+      <div class="bfr-detail">
+        <span class="bfr-market pixel-text">{{ b.market_label }}</span>
+        <span class="bfr-outcome">{{ b.outcome_label }}</span>
+      </div>
+      <div class="bfr-numbers">
+        <span class="bfr-odds pixel-text">@ {{ b.odds }}</span>
+        <span class="bfr-amount">{{ b.amount }}🪙</span>
+        <span class="bfr-potential glow-green pixel-text">→ {{ b.potential_win }}🪙</span>
+      </div>
+      <div class="bfr-date">{{ b.match.match_date.strftime('%d/%m %H:%M') }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Historial -->
+  {% set settled = bets | selectattr('result') | list %}
+  {% if settled %}
+  <div class="section-header" style="margin-top:24px;margin-bottom:8px">
+    <span class="pixel-text section-title">📜 HISTORIAL</span>
+  </div>
+  <div class="bets-full-list">
+    {% for b in settled %}
+    <div class="bet-full-row bet-{{ b.result }}">
+      <div class="bfr-teams">
+        {{ flag(b.match.team1) }}
+        <span class="bfr-vs">{{ b.match.team1.name }} vs {{ b.match.team2.name }}</span>
+        {{ flag(b.match.team2) }}
+        <span class="bfr-result pixel-text">{{ b.match.goals1 }}-{{ b.match.goals2 }}</span>
+      </div>
+      <div class="bfr-detail">
+        <span class="bfr-market pixel-text">{{ b.market_label }}</span>
+        <span class="bfr-outcome">{{ b.outcome_label }}</span>
+      </div>
+      <div class="bfr-numbers">
+        <span class="bfr-odds pixel-text">@ {{ b.odds }}</span>
+        {% if b.result == 'won' %}
+        <span class="bfr-badge-won pixel-text">+{{ b.potential_win }}🪙</span>
+        {% else %}
+        <span class="bfr-badge-lost pixel-text">-{{ b.amount }}🪙</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% endif %}
+</div>
+{% endblock %}
