@@ -11,7 +11,7 @@ os.chdir(APP_DIR)
 
 from app import app as application
 # Importar todos los modelos explícitamente para que db.create_all() los registre
-from models import db, TournamentSettings, Player, UserCard, UserPack  # noqa: F401
+from models import db, TournamentSettings, Player, UserCard, UserPack, Bet  # noqa: F401
 
 
 def run_migrations():
@@ -24,6 +24,7 @@ def run_migrations():
         "ALTER TABLE tournament_settings ADD COLUMN dark_horse_id INTEGER",
         "ALTER TABLE matches ADD COLUMN is_daily_bonus BOOLEAN DEFAULT 0",
         "ALTER TABLE users ADD COLUMN coins_spent INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN bet_winnings INTEGER DEFAULT 0",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
