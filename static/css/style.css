@@ -1593,20 +1593,106 @@ body {
 .reveal-front { animation: front-pulse 2.5s ease-in-out infinite; }
 
 /* ══════════════════════════════════════════════
-   NAV ADMIN SECTION
+   NAV DESKTOP — AJUSTES COMPACTOS
    ══════════════════════════════════════════════ */
-.dnl-admin-sep {
-  width: 1px; height: 18px; background: var(--nav-border); margin: 0 6px;
-  display: inline-block; vertical-align: middle;
+/* Separador visual entre grupos */
+.dnl-sep {
+  width: 1px; height: 18px; background: var(--nav-border);
+  margin: 0 4px; display: inline-block; vertical-align: middle; flex-shrink: 0;
 }
+/* Links más compactos en desktop */
+.dnl { font-size: .62rem !important; letter-spacing: 0 !important; padding: 5px 9px !important; }
+
+/* Apuestas: acento dorado */
+.dnl-bet { color: var(--accent) !important; }
+.dnl-bet:hover, .dnl-bet.active {
+  border-color: var(--accent) !important; color: var(--accent) !important;
+  box-shadow: 0 0 8px rgba(240,160,0,.25) !important;
+}
+
+/* Admin badge */
 .dnl-admin {
-  background: rgba(238,0,85,.12);
-  border-radius: 6px;
-  padding: 4px 10px !important;
-  color: var(--secondary) !important;
+  background: rgba(238,0,85,.12); border-radius: 6px;
+  padding: 4px 9px !important; color: var(--secondary) !important;
 }
-.dnl-admin:hover { background: rgba(238,0,85,.2) !important; }
+.dnl-admin:hover  { background: rgba(238,0,85,.2)  !important; }
 .dnl-admin.active { background: rgba(238,0,85,.25) !important; }
+
+/* ── Bottom nav central bubble (Apuestas) ── */
+.bn-center {
+  position: relative; overflow: visible;
+}
+.bn-center-bubble {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #ff8800);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(240,160,0,.45);
+  margin-bottom: 2px; margin-top: -10px;
+  transition: transform .15s, box-shadow .15s;
+}
+.bn-center .bn-icon { color: #000; width: 20px; height: 20px; }
+.bn-center:active .bn-center-bubble { transform: scale(.92); }
+.bn-center.active .bn-center-bubble { box-shadow: 0 4px 20px rgba(240,160,0,.7); }
+
+/* ── More menu overlay ── */
+.more-overlay {
+  position: fixed; inset: 0; z-index: 298;
+  background: rgba(0,0,0,.55);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.more-overlay.open { opacity: 1; pointer-events: all; }
+
+/* ── More menu bottom sheet ── */
+.more-menu {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 299;
+  background: rgba(8,8,20,.98);
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 16px 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform .3s cubic-bezier(.2,.8,.3,1);
+}
+.more-menu.open { transform: translateY(0); }
+
+.more-menu-handle {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: var(--border2); margin: 0 auto 16px;
+}
+.more-menu-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px; margin-bottom: 14px;
+}
+.more-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 8px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--border);
+  text-decoration: none; color: var(--text);
+  transition: all .12s; touch-action: manipulation;
+}
+.more-item:active { transform: scale(.95); background: var(--surface2); }
+.more-item.more-active { border-color: var(--primary); background: rgba(0,187,85,.06); }
+.more-item.more-active .more-item-lbl { color: var(--primary); }
+.more-item-admin { border-color: rgba(238,0,85,.3); }
+.more-item-admin.more-active, .more-item-admin:active { border-color: var(--secondary); }
+.more-item-icon { font-size: 1.5rem; line-height: 1; }
+.more-item-lbl  { font-size: .68rem; font-weight: 700; color: var(--text2); }
+
+.more-logout {
+  display: block; text-align: center; padding: 12px;
+  color: var(--muted); font-size: .82rem; font-weight: 600;
+  text-decoration: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); transition: all .12s;
+}
+.more-logout:active { background: var(--surface2); color: var(--text); }
+
+/* Ocultar more-menu en desktop */
+@media (min-width: 768px) {
+  .more-overlay, .more-menu { display: none !important; }
+}
 
 /* ══════════════════════════════════════════════
    CASA DE APUESTAS
