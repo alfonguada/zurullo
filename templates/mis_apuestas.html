@@ -69,6 +69,11 @@
           {% elif p.result == 'lost' %}<span class="bfr-badge-lost pixel-text">-{{ p.amount }}🪙</span>
           {% else %}<span class="glow-green pixel-text">{{ p.potential_win }}🪙</span>{% endif %}
         </span>
+        {% if p.cancellable %}
+        <button class="cancel-bet-btn" onclick="cancelParlay({{ p.id }})">✕ cancelar y devolver</button>
+        {% elif p.result is none %}
+        <span class="parlay-locked">🔒 en juego</span>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -98,6 +103,9 @@
         <span class="bfr-potential glow-green pixel-text">→ {{ b.potential_win }}🪙</span>
       </div>
       <div class="bfr-date">{{ b.match.match_date.strftime('%d/%m %H:%M') }}</div>
+      {% if not b.match.is_locked and b.match.goals1 is none %}
+      <button class="cancel-bet-btn" onclick="cancelBet({{ b.id }})">✕ cancelar y devolver</button>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -137,4 +145,31 @@
 
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function cancelBet(betId) {
+  if (!confirm('¿Cancelar esta apuesta y recuperar las monedas?')) return;
+  fetch('/casa/cancelar/' + betId, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+      if (data.ok) { sessionStorage.setItem('misFlash', '↩ Apuesta cancelada y monedas devueltas.'); location.reload(); }
+      else (window.showFlash ? showFlash(data.error || 'No se pudo cancelar.', 'error') : alert(data.error || 'No se pudo cancelar.'));
+    }).catch(() => alert('Error de red.'));
+}
+
+function cancelParlay(parlayId) {
+  if (!confirm('¿Cancelar esta combinada y recuperar las monedas?')) return;
+  fetch('/casa/combinada/cancelar/' + parlayId, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+      if (data.ok) { sessionStorage.setItem('misFlash', '↩ Combinada cancelada y monedas devueltas.'); location.reload(); }
+      else (window.showFlash ? showFlash(data.error || 'No se pudo cancelar.', 'error') : alert(data.error || 'No se pudo cancelar.'));
+    }).catch(() => alert('Error de red.'));
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const m = sessionStorage.getItem('misFlash');
+  if (m) { sessionStorage.removeItem('misFlash'); if (window.showFlash) showFlash(m, 'success'); }
+});
+</script>
 {% endblock %}
