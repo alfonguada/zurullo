@@ -126,6 +126,9 @@ body {
   text-decoration: none; color: var(--muted);
   transition: color .15s; position: relative; overflow: hidden;
   touch-action: manipulation;
+  background: transparent; border: none; cursor: pointer;
+  font-family: inherit; font-size: inherit; padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 .bn-item:active::after {
   content: ''; position: absolute; inset: 0;
