@@ -2149,3 +2149,108 @@ body {
 }
 .gift-claim:hover { box-shadow: 0 4px 0 #b37e00, 0 0 32px rgba(255,215,0,.9); }
 .gift-claim:active { transform: translateY(3px); box-shadow: 0 1px 0 #b37e00; }
+
+/* ── COMBINADAS & BOLETO ─────────────────────────────────────────────────── */
+.combo-hint {
+  background: rgba(0,180,255,.08); border: 1px solid rgba(0,180,255,.3);
+  border-radius: 10px; padding: 10px 14px; margin: 12px 0 18px;
+  font-size: .82rem; color: var(--text2); line-height: 1.45;
+}
+.combo-hint b { color: var(--accent); }
+
+/* Botón cuota seleccionada (en el boleto) */
+.odds-btn.selected {
+  border-color: var(--accent) !important;
+  background: linear-gradient(180deg, rgba(0,180,255,.25), rgba(0,180,255,.08)) !important;
+  box-shadow: 0 0 0 2px rgba(0,180,255,.35), 0 0 14px rgba(0,180,255,.4);
+}
+
+/* Botones cancelar */
+.cancel-bet-btn {
+  background: rgba(238,0,85,.12); border: 1px solid rgba(238,0,85,.45);
+  color: #ff5c8a; border-radius: 8px; padding: 5px 10px; cursor: pointer;
+  font-size: .72rem; font-weight: 700; white-space: nowrap; transition: background .12s;
+}
+.cancel-bet-btn:hover { background: rgba(238,0,85,.25); }
+
+/* Tarjetas de combinada */
+.parlay-list { display: flex; flex-direction: column; gap: 12px; }
+.parlay-card {
+  background: var(--card, #12122a); border: 1px solid rgba(255,255,255,.08);
+  border-left: 4px solid var(--accent); border-radius: 12px; padding: 12px 14px;
+}
+.parlay-card.parlay-won  { border-left-color: var(--primary, #36e27a); }
+.parlay-card.parlay-lost { border-left-color: var(--secondary, #ee0055); opacity: .85; }
+.parlay-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.parlay-tag { font-size: .5rem; color: var(--accent); }
+.parlay-odds { font-size: .55rem; color: #ffd700; }
+.parlay-legs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.parlay-leg {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: rgba(255,255,255,.03); border-radius: 8px; padding: 7px 10px;
+  font-size: .8rem; border-left: 3px solid rgba(255,255,255,.12);
+}
+.parlay-leg.leg-won  { border-left-color: var(--primary, #36e27a); }
+.parlay-leg.leg-lost { border-left-color: var(--secondary, #ee0055); }
+.pleg-teams { color: var(--text); font-weight: 600; }
+.pleg-pick  { color: var(--text2); margin-left: auto; }
+.pleg-pick b { color: var(--accent); }
+.pleg-mark { font-weight: 700; color: var(--muted); }
+.parlay-leg.leg-won  .pleg-mark { color: var(--primary, #36e27a); }
+.parlay-leg.leg-lost .pleg-mark { color: var(--secondary, #ee0055); }
+.pleg-wait { color: var(--muted); }
+.parlay-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.parlay-stake { font-size: .86rem; color: var(--text2); }
+.parlay-locked { font-size: .76rem; color: var(--muted); }
+
+/* Boleto fijo */
+.boleto {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--bottom-nav-h, 64px) + 8px);
+  width: min(560px, calc(100% - 20px)); z-index: 900;
+  background: #0d0d20; border: 2px solid var(--accent);
+  border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.6), 0 0 26px rgba(0,180,255,.35);
+  overflow: hidden;
+}
+@media (min-width: 768px) { .boleto { bottom: 16px; } }
+.boleto-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer;
+  background: linear-gradient(90deg, rgba(0,180,255,.18), transparent);
+}
+.boleto-title { font-size: .55rem; color: var(--accent); }
+.boleto-combo { font-size: .5rem; color: #ffd700; margin-left: auto; }
+.boleto-collapse { color: var(--muted); font-size: .8rem; }
+.boleto-body { padding: 0 14px 14px; max-height: 46vh; overflow-y: auto; }
+.boleto-body.collapsed { display: none; }
+.boleto-legs { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 12px; }
+.boleto-leg {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.04); border-radius: 8px; padding: 8px 10px;
+}
+.bl-info { flex: 1; min-width: 0; }
+.bl-match { font-size: .8rem; color: var(--text); font-weight: 600; }
+.bl-pick  { font-size: .74rem; color: var(--text2); }
+.bl-pick b { color: var(--accent); }
+.bl-odd { font-size: .55rem; color: #ffd700; }
+.bl-remove {
+  background: rgba(238,0,85,.15); border: none; color: #ff5c8a; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 6px; font-weight: 700;
+}
+.bl-remove:hover { background: rgba(238,0,85,.3); }
+.boleto-amounts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.boleto-stake-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.boleto-actions { display: flex; gap: 10px; }
+.boleto-clear {
+  flex: 0 0 auto; background: transparent; border: 1px solid rgba(255,255,255,.2);
+  color: var(--muted); border-radius: 10px; padding: 0 16px; cursor: pointer;
+  font-size: .72rem; font-weight: 700;
+}
+.boleto-clear:hover { color: var(--text); border-color: rgba(255,255,255,.4); }
+.boleto-confirm {
+  flex: 1; padding: 13px; border: none; border-radius: 10px; cursor: pointer; color: #001018;
+  background: linear-gradient(90deg, #00d4ff, #00b4ff);
+  box-shadow: 0 3px 0 #0077a8; transition: transform .1s, box-shadow .1s;
+}
+.boleto-confirm:hover { box-shadow: 0 3px 0 #0077a8, 0 0 22px rgba(0,180,255,.7); }
+.boleto-confirm:active { transform: translateY(2px); box-shadow: 0 1px 0 #0077a8; }
+.boleto-confirm:disabled { opacity: .6; cursor: default; }

@@ -7,7 +7,7 @@ from collections import defaultdict
 import os
 
 import random
-from models import db, User, Team, Match, Prediction, BonusPrediction, ExtraBonusPrediction, WorstTeamAssignment, TournamentSettings, Player, UserCard, UserPack, Bet
+from models import db, User, Team, Match, Prediction, BonusPrediction, ExtraBonusPrediction, WorstTeamAssignment, TournamentSettings, Player, UserCard, UserPack, Bet, Parlay, ParlayLeg
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zurullo-wc-2026-secret')
@@ -136,6 +136,7 @@ def recalc_match(match):
         if pred.points_earned in (3, 6):
             _grant_pack_no_commit(pred.user, 'standard', source=f'exact_{pred.id}')
     settle_match_bets(match)
+    settle_match_parlays(match)
 
 
 # ─── HELPERS: STREAKS & ACHIEVEMENTS ─────────────────────────────────────────
@@ -332,6 +333,30 @@ BETTING_MARKETS = {
         'base_probs': {'yes': 0.524, 'under': 0.476},  # 'under' key kept for compat
         'margin': 1.040,
     },
+    'goals15': {
+        'name': '+1.5 Goles',
+        'icon': '🥅',
+        'outcomes': ['o15', 'u15'],
+        'labels': {'o15': 'Más de 1.5', 'u15': 'Menos de 1.5'},
+        'base_probs': {'o15': 0.74, 'u15': 0.26},
+        'margin': 1.045,
+    },
+    'goals35': {
+        'name': '+3.5 Goles',
+        'icon': '💥',
+        'outcomes': ['o35', 'u35'],
+        'labels': {'o35': 'Más de 3.5', 'u35': 'Menos de 3.5'},
+        'base_probs': {'o35': 0.33, 'u35': 0.67},
+        'margin': 1.045,
+    },
+    'oddeven': {
+        'name': 'Par / Impar',
+        'icon': '🔢',
+        'outcomes': ['odd', 'even'],
+        'labels': {'odd': 'Impar', 'even': 'Par'},
+        'base_probs': {'odd': 0.51, 'even': 0.49},
+        'margin': 1.050,
+    },
 }
 # Corrección clave btts
 BETTING_MARKETS['btts']['base_probs'] = {'yes': 0.524, 'no': 0.476}
@@ -366,17 +391,25 @@ def calc_live_odds(match_id, market):
     return result
 
 
-def settle_match_bets(match):
-    """Liquida automáticamente todas las apuestas de un partido."""
-    if not match.result_entered:
-        return
+def _winning_outcomes(match):
+    """Resultado ganador de cada mercado para un partido jugado."""
     g1, g2 = match.goals1, match.goals2
     total_goals = g1 + g2
-    winning_outcomes = {
+    return {
         '1x2':    '1' if g1 > g2 else ('X' if g1 == g2 else '2'),
         'goals25': 'over' if total_goals > 2.5 else 'under',
+        'goals15': 'o15' if total_goals > 1.5 else 'u15',
+        'goals35': 'o35' if total_goals > 3.5 else 'u35',
         'btts':    'yes' if (g1 > 0 and g2 > 0) else 'no',
+        'oddeven': 'odd' if total_goals % 2 == 1 else 'even',
     }
+
+
+def settle_match_bets(match):
+    """Liquida automáticamente todas las apuestas simples de un partido."""
+    if not match.result_entered:
+        return
+    winning_outcomes = _winning_outcomes(match)
     pending = Bet.query.filter_by(match_id=match.id, result=None).all()
     for bet in pending:
         correct = winning_outcomes.get(bet.market)
@@ -388,6 +421,36 @@ def settle_match_bets(match):
         else:
             bet.result = 'lost'
         bet.settled_at = datetime.utcnow()
+    # No commit here — caller commits
+
+
+def settle_match_parlays(match):
+    """Resuelve las selecciones de combinadas de este partido y liquida las que queden completas."""
+    if not match.result_entered:
+        return
+    winning_outcomes = _winning_outcomes(match)
+    legs = ParlayLeg.query.filter_by(match_id=match.id, result=None).all()
+    affected = set()
+    for leg in legs:
+        correct = winning_outcomes.get(leg.market)
+        if correct is None:
+            continue
+        leg.result = 'won' if leg.outcome == correct else 'lost'
+        affected.add(leg.parlay_id)
+    # Reevaluar cada combinada afectada
+    for pid in affected:
+        parlay = Parlay.query.get(pid)
+        if not parlay or parlay.result is not None:
+            continue
+        results = [l.result for l in parlay.legs]
+        if any(r == 'lost' for r in results):
+            parlay.result = 'lost'
+            parlay.settled_at = datetime.utcnow()
+        elif all(r == 'won' for r in results):
+            parlay.result = 'won'
+            parlay.settled_at = datetime.utcnow()
+            parlay.user.bet_winnings = (parlay.user.bet_winnings or 0) + parlay.potential_win
+        # si quedan selecciones pendientes, la combinada sigue abierta
     # No commit here — caller commits
 
 
@@ -687,6 +750,11 @@ def casa():
                    .filter(Bet.user_id == current_user.id, Bet.result.isnot(None))
                    .order_by(Bet.settled_at.desc()).limit(5).all())
 
+    # Combinadas activas del usuario
+    active_parlays = (Parlay.query
+                      .filter_by(user_id=current_user.id, result=None)
+                      .order_by(Parlay.created_at.desc()).all())
+
     return render_template('casa.html',
         open_matches=open_matches,
         locked_noresult=locked_noresult,
@@ -695,47 +763,128 @@ def casa():
         MARKETS=BETTING_MARKETS,
         active_bets=active_bets,
         recent_bets=recent_bets,
+        active_parlays=active_parlays,
     )
 
 
-@app.route('/casa/apostar', methods=['POST'])
-@login_required
-def place_bet():
-    match_id = request.form.get('match_id', type=int)
-    market   = request.form.get('market', '')
-    outcome  = request.form.get('outcome', '')
-    amount   = request.form.get('amount', type=int, default=0)
+MAX_PARLAY_LEGS = 10
+MAX_TOTAL_ODDS  = 1000.0
 
-    if market not in BETTING_MARKETS:
-        return jsonify({'error': 'Mercado inválido.'}), 400
-    if outcome not in BETTING_MARKETS[market]['outcomes']:
-        return jsonify({'error': 'Resultado inválido.'}), 400
+
+@app.route('/casa/boleto', methods=['POST'])
+@login_required
+def place_slip():
+    """Registra un boleto: 1 selección = apuesta simple, 2-10 = combinada."""
+    data = request.get_json(silent=True) or {}
+    legs_in = data.get('legs') or []
+    try:
+        amount = int(data.get('amount') or 0)
+    except (TypeError, ValueError):
+        amount = 0
+
+    if not legs_in:
+        return jsonify({'error': 'Selecciona al menos una apuesta.'}), 400
+    if len(legs_in) > MAX_PARLAY_LEGS:
+        return jsonify({'error': f'Máximo {MAX_PARLAY_LEGS} selecciones por combinada.'}), 400
     if not (10 <= amount <= 1000):
         return jsonify({'error': 'Importe entre 10 y 1.000 🪙.'}), 400
-
-    match = Match.query.get_or_404(match_id)
-    if match.is_locked:
-        return jsonify({'error': 'El partido ya empezó, apuestas cerradas.'}), 400
     if current_user.coins < amount:
         return jsonify({'error': f'No tienes suficientes monedas ({current_user.coins}🪙).'}), 400
 
-    if Bet.query.filter_by(user_id=current_user.id, match_id=match_id, market=market).first():
-        return jsonify({'error': 'Ya tienes una apuesta activa en este mercado.'}), 400
+    # Validar y normalizar cada selección (recalculando cuotas en el servidor)
+    seen, legs = set(), []
+    for lg in legs_in:
+        try:
+            mid = int(lg.get('match_id'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Selección inválida.'}), 400
+        market, outcome = lg.get('market'), lg.get('outcome')
+        if market not in BETTING_MARKETS:
+            return jsonify({'error': 'Mercado inválido.'}), 400
+        if outcome not in BETTING_MARKETS[market]['outcomes']:
+            return jsonify({'error': 'Resultado inválido.'}), 400
+        if (mid, market) in seen:
+            return jsonify({'error': 'No puedes repetir el mismo mercado de un partido.'}), 400
+        seen.add((mid, market))
+        match = Match.query.get(mid)
+        if not match:
+            return jsonify({'error': 'Partido no encontrado.'}), 404
+        if match.is_locked or match.result_entered:
+            return jsonify({'error': f'{match.team1.name}-{match.team2.name} ya no admite apuestas.'}), 400
+        odds = calc_live_odds(mid, market)[outcome]
+        legs.append({'match': match, 'market': market, 'outcome': outcome, 'odds': odds})
 
-    odds = calc_live_odds(match_id, market)[outcome]
-    potential = int(amount * odds)
+    # ── Apuesta simple ──
+    if len(legs) == 1:
+        lg = legs[0]
+        if Bet.query.filter_by(user_id=current_user.id, match_id=lg['match'].id,
+                               market=lg['market'], result=None).first():
+            return jsonify({'error': 'Ya tienes una apuesta activa en ese mercado.'}), 400
+        potential = int(amount * lg['odds'])
+        current_user.coins_spent = (current_user.coins_spent or 0) + amount
+        db.session.add(Bet(
+            user_id=current_user.id, match_id=lg['match'].id,
+            market=lg['market'], outcome=lg['outcome'],
+            amount=amount, odds=lg['odds'], potential_win=potential,
+        ))
+        db.session.commit()
+        return jsonify({'ok': True, 'kind': 'single', 'total_odds': lg['odds'],
+                        'potential': potential, 'coins': current_user.coins})
 
+    # ── Combinada ──
+    total_odds = 1.0
+    for lg in legs:
+        total_odds *= lg['odds']
+    total_odds = round(min(total_odds, MAX_TOTAL_ODDS), 2)
+    potential = int(amount * total_odds)
     current_user.coins_spent = (current_user.coins_spent or 0) + amount
-    db.session.add(Bet(
-        user_id=current_user.id, match_id=match_id,
-        market=market, outcome=outcome,
-        amount=amount, odds=odds, potential_win=potential,
-    ))
+    parlay = Parlay(user_id=current_user.id, amount=amount,
+                    total_odds=total_odds, potential_win=potential)
+    db.session.add(parlay)
+    db.session.flush()
+    for lg in legs:
+        db.session.add(ParlayLeg(
+            parlay_id=parlay.id, match_id=lg['match'].id,
+            market=lg['market'], outcome=lg['outcome'], odds=round(lg['odds'], 2),
+        ))
     db.session.commit()
-    return jsonify({
-        'ok': True, 'odds': odds, 'potential': potential,
-        'coins': current_user.coins,
-    })
+    return jsonify({'ok': True, 'kind': 'combo', 'legs': len(legs),
+                    'total_odds': total_odds, 'potential': potential,
+                    'coins': current_user.coins})
+
+
+@app.route('/casa/cancelar/<int:bet_id>', methods=['POST'])
+@login_required
+def cancel_bet(bet_id):
+    """Cancela una apuesta simple y devuelve las monedas si el partido no ha empezado."""
+    bet = Bet.query.get_or_404(bet_id)
+    if bet.user_id != current_user.id:
+        return jsonify({'error': 'No autorizado.'}), 403
+    if bet.result is not None:
+        return jsonify({'error': 'Esta apuesta ya está liquidada.'}), 400
+    if bet.match.is_locked or bet.match.result_entered:
+        return jsonify({'error': 'El partido ya empezó, no se puede cancelar.'}), 400
+    current_user.coins_spent = max(0, (current_user.coins_spent or 0) - bet.amount)
+    db.session.delete(bet)
+    db.session.commit()
+    return jsonify({'ok': True, 'coins': current_user.coins})
+
+
+@app.route('/casa/combinada/cancelar/<int:parlay_id>', methods=['POST'])
+@login_required
+def cancel_parlay(parlay_id):
+    """Cancela una combinada y devuelve las monedas si ningún partido ha empezado."""
+    parlay = Parlay.query.get_or_404(parlay_id)
+    if parlay.user_id != current_user.id:
+        return jsonify({'error': 'No autorizado.'}), 403
+    if parlay.result is not None:
+        return jsonify({'error': 'Esta combinada ya está liquidada.'}), 400
+    if not parlay.cancellable:
+        return jsonify({'error': 'Algún partido ya empezó, no se puede cancelar.'}), 400
+    current_user.coins_spent = max(0, (current_user.coins_spent or 0) - parlay.amount)
+    db.session.delete(parlay)
+    db.session.commit()
+    return jsonify({'ok': True, 'coins': current_user.coins})
 
 
 @app.route('/api/casa/odds/<int:match_id>')
@@ -761,17 +910,27 @@ def mis_apuestas():
     bets = (Bet.query
             .filter_by(user_id=current_user.id)
             .join(Match).order_by(Bet.created_at.desc()).all())
+    parlays = (Parlay.query
+               .filter_by(user_id=current_user.id)
+               .order_by(Parlay.created_at.desc()).all())
     pending = [b for b in bets if b.result is None]
     won     = [b for b in bets if b.result == 'won']
     lost    = [b for b in bets if b.result == 'lost']
-    total_wagered = sum(b.amount for b in bets)
-    total_won     = sum(b.potential_win for b in won)
-    total_lost    = sum(b.amount for b in lost)
+    pending_parlays = [p for p in parlays if p.result is None]
+    won_parlays     = [p for p in parlays if p.result == 'won']
+    lost_parlays    = [p for p in parlays if p.result == 'lost']
+    # KPIs combinando apuestas simples y combinadas
+    all_won  = won + won_parlays
+    all_lost = lost + lost_parlays
+    total_wagered = sum(b.amount for b in bets) + sum(p.amount for p in parlays)
+    total_won     = sum(b.potential_win for b in won) + sum(p.potential_win for p in won_parlays)
+    n_total = len(bets) + len(parlays)
     roi = round((total_won - total_wagered) / total_wagered * 100, 1) if total_wagered > 0 else 0
     return render_template('mis_apuestas.html',
-        bets=bets, pending=pending, won=won, lost=lost,
-        total_wagered=total_wagered, total_won=total_won,
-        total_lost=total_lost, roi=roi,
+        bets=bets, pending=pending, won=all_won, lost=all_lost,
+        parlays=parlays, pending_parlays=pending_parlays,
+        n_total=n_total, total_wagered=total_wagered, total_won=total_won,
+        roi=roi,
     )
 
 

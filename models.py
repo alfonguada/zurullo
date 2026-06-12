@@ -291,12 +291,73 @@ class Bet(db.Model):
 
     @property
     def market_label(self):
-        return {'1x2': 'Ganador', 'goals25': '+2.5 Goles', 'btts': 'Ambos Marcan'}.get(self.market, self.market)
+        return MARKET_LABELS.get(self.market, self.market)
 
     @property
     def outcome_label(self):
-        return {
-            '1': '1 (local)', 'X': 'Empate', '2': '2 (visitante)',
-            'over': 'Más de 2.5', 'under': 'Menos de 2.5',
-            'yes': 'Sí', 'no': 'No',
-        }.get(self.outcome, self.outcome)
+        return OUTCOME_LABELS.get(self.outcome, self.outcome)
+
+
+# Etiquetas compartidas para mercados/resultados (apuestas y combinadas)
+MARKET_LABELS = {
+    '1x2': 'Ganador', 'goals25': '+2.5 Goles', 'btts': 'Ambos Marcan',
+    'goals15': '+1.5 Goles', 'goals35': '+3.5 Goles', 'oddeven': 'Par / Impar',
+}
+OUTCOME_LABELS = {
+    '1': '1 (local)', 'X': 'Empate', '2': '2 (visitante)',
+    'over': 'Más de 2.5', 'under': 'Menos de 2.5', 'yes': 'Sí', 'no': 'No',
+    'o15': 'Más de 1.5', 'u15': 'Menos de 1.5',
+    'o35': 'Más de 3.5', 'u35': 'Menos de 3.5',
+    'odd': 'Impar', 'even': 'Par',
+}
+
+
+class Parlay(db.Model):
+    """Apuesta combinada: varias selecciones con una sola apuesta. Gana si aciertan todas."""
+    __tablename__ = 'parlays'
+    id            = db.Column(db.Integer, primary_key=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    amount        = db.Column(db.Integer, nullable=False)   # monedas apostadas (una sola)
+    total_odds    = db.Column(db.Float,   nullable=False)   # producto de las cuotas
+    potential_win = db.Column(db.Integer, nullable=False)   # amount * total_odds
+    result        = db.Column(db.String(10))                # None=pendiente 'won' 'lost'
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    settled_at    = db.Column(db.DateTime)
+
+    user = db.relationship('User', backref=db.backref('parlays', lazy='dynamic'))
+    legs = db.relationship('ParlayLeg', back_populates='parlay',
+                           cascade='all, delete-orphan', lazy='select')
+
+    @property
+    def leg_count(self):
+        return len(self.legs)
+
+    @property
+    def cancellable(self):
+        """Se puede cancelar si ningún partido de la combinada ha empezado."""
+        return self.result is None and all(
+            (not leg.match.is_locked) and leg.match.goals1 is None for leg in self.legs
+        )
+
+
+class ParlayLeg(db.Model):
+    """Cada selección de una combinada."""
+    __tablename__ = 'parlay_legs'
+    id         = db.Column(db.Integer, primary_key=True)
+    parlay_id  = db.Column(db.Integer, db.ForeignKey('parlays.id'), nullable=False)
+    match_id   = db.Column(db.Integer, db.ForeignKey('matches.id'), nullable=False)
+    market     = db.Column(db.String(20), nullable=False)
+    outcome    = db.Column(db.String(10), nullable=False)
+    odds       = db.Column(db.Float, nullable=False)
+    result     = db.Column(db.String(10))  # None=pendiente 'won' 'lost'
+
+    parlay = db.relationship('Parlay', back_populates='legs')
+    match  = db.relationship('Match')
+
+    @property
+    def market_label(self):
+        return MARKET_LABELS.get(self.market, self.market)
+
+    @property
+    def outcome_label(self):
+        return OUTCOME_LABELS.get(self.outcome, self.outcome)

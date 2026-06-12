@@ -11,7 +11,7 @@
   <div class="stats-kpi-grid" style="margin-bottom:20px">
     <div class="kpi-card kpi-blue">
       <div class="kpi-icon">📋</div>
-      <div class="kpi-val">{{ bets|length }}</div>
+      <div class="kpi-val">{{ n_total }}</div>
       <div class="kpi-lbl">TOTAL<br>APUESTAS</div>
     </div>
     <div class="kpi-card kpi-green">
@@ -31,7 +31,7 @@
     </div>
   </div>
 
-  {% if not bets %}
+  {% if not bets and not parlays %}
   <div class="empty-state">
     <div style="font-size:3rem;margin-bottom:12px">🎲</div>
     Aún no has hecho ninguna apuesta.<br>
@@ -39,10 +39,46 @@
   </div>
   {% else %}
 
-  <!-- Pendientes -->
-  {% if pending %}
+  <!-- Combinadas -->
+  {% set settled_parlays = parlays | selectattr('result') | list %}
+  {% if parlays %}
   <div class="section-header" style="margin-bottom:8px">
-    <span class="pixel-text section-title">⏳ PENDIENTES ({{ pending|length }})</span>
+    <span class="pixel-text section-title">🎟️ COMBINADAS ({{ parlays|length }})</span>
+  </div>
+  <div class="parlay-list">
+    {% for p in parlays %}
+    <div class="parlay-card parlay-{{ p.result or 'pending' }}">
+      <div class="parlay-top">
+        <span class="parlay-tag pixel-text">🎟️ ×{{ p.leg_count }}
+          {% if p.result == 'won' %}· GANADA{% elif p.result == 'lost' %}· PERDIDA{% else %}· PENDIENTE{% endif %}
+        </span>
+        <span class="parlay-odds pixel-text">@ {{ p.total_odds }}</span>
+      </div>
+      <div class="parlay-legs">
+        {% for leg in p.legs %}
+        <div class="parlay-leg {% if leg.result == 'won' %}leg-won{% elif leg.result == 'lost' %}leg-lost{% endif %}">
+          <span class="pleg-teams">{{ flag(leg.match.team1) }} {{ leg.match.team1.name[:8] }} vs {{ leg.match.team2.name[:8] }} {{ flag(leg.match.team2) }}</span>
+          <span class="pleg-pick">{{ leg.market_label }}: <b>{{ leg.outcome_label }}</b> @ {{ leg.odds }}</span>
+          {% if leg.result == 'won' %}<span class="pleg-mark">✓</span>{% elif leg.result == 'lost' %}<span class="pleg-mark">✗</span>{% else %}<span class="pleg-mark pleg-wait">•</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="parlay-foot">
+        <span class="parlay-stake">{{ p.amount }}🪙 →
+          {% if p.result == 'won' %}<span class="glow-green pixel-text">+{{ p.potential_win }}🪙</span>
+          {% elif p.result == 'lost' %}<span class="bfr-badge-lost pixel-text">-{{ p.amount }}🪙</span>
+          {% else %}<span class="glow-green pixel-text">{{ p.potential_win }}🪙</span>{% endif %}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Pendientes simples -->
+  {% if pending %}
+  <div class="section-header" style="margin-top:24px;margin-bottom:8px">
+    <span class="pixel-text section-title">⏳ SIMPLES PENDIENTES ({{ pending|length }})</span>
   </div>
   <div class="bets-full-list">
     {% for b in pending %}
@@ -71,7 +107,7 @@
   {% set settled = bets | selectattr('result') | list %}
   {% if settled %}
   <div class="section-header" style="margin-top:24px;margin-bottom:8px">
-    <span class="pixel-text section-title">📜 HISTORIAL</span>
+    <span class="pixel-text section-title">📜 HISTORIAL SIMPLES</span>
   </div>
   <div class="bets-full-list">
     {% for b in settled %}

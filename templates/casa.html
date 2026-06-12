@@ -17,10 +17,14 @@
       <div class="bbc-sub">🪙 monedas</div>
     </div>
     <div class="bbc-right">
-      <div class="bbc-stat"><span class="bbc-stat-val" id="activeBetsCount">{{ active_bets|length }}</span><span class="bbc-stat-lbl">ACTIVAS</span></div>
+      <div class="bbc-stat"><span class="bbc-stat-val" id="activeBetsCount">{{ active_bets|length + active_parlays|length }}</span><span class="bbc-stat-lbl">ACTIVAS</span></div>
       <div class="bbc-stat-sep"></div>
-      <div class="bbc-stat"><span class="bbc-stat-val">{{ active_bets|sum(attribute='potential_win') }}</span><span class="bbc-stat-lbl">POT.WIN 🪙</span></div>
+      <div class="bbc-stat"><span class="bbc-stat-val">{{ active_bets|sum(attribute='potential_win') + active_parlays|sum(attribute='potential_win') }}</span><span class="bbc-stat-lbl">POT.WIN 🪙</span></div>
     </div>
+  </div>
+
+  <div class="combo-hint">
+    💡 Toca varias cuotas (de uno o varios partidos) para montar una <b>combinada</b> · hasta 10 selecciones · la cuota se multiplica.
   </div>
 
   <!-- ══ MERCADOS ACTIVOS ═════════════════════════════════════ -->
@@ -86,7 +90,8 @@
             {% for outcome in cfg.outcomes %}
             <button class="odds-btn"
                     id="ob-{{ match.id }}-{{ mk }}-{{ outcome }}"
-                    data-match="{{ match.id }}" data-market="{{ mk }}" data-outcome="{{ outcome }}"
+                    data-match="{{ match.id }}" data-market="{{ mk }}"
+                    data-marketname="{{ cfg.name }}" data-outcome="{{ outcome }}"
                     onclick="selectOdds(this)">
               <span class="ob-label">{{ cfg.labels[outcome] }}</span>
               <span class="ob-odds pixel-text" id="odd-{{ match.id }}-{{ mk }}-{{ outcome }}">
@@ -99,32 +104,6 @@
         </div>
         {% endfor %}
 
-        <!-- BET SLIP (inline) -->
-        <div class="bet-slip hidden" id="slip-{{ match.id }}">
-          <div class="slip-selection" id="slip-sel-{{ match.id }}"></div>
-          <div class="slip-amounts">
-            {% for v in [10, 25, 50, 100, 200] %}
-            <button class="slip-amt-btn" onclick="setAmount({{ match.id }}, {{ v }})">{{ v }}</button>
-            {% endfor %}
-            <button class="slip-amt-btn slip-allin" onclick="setAmountAll({{ match.id }})">MAX</button>
-          </div>
-          <div class="slip-input-row">
-            <span class="pixel-text" style="font-size:.4rem;color:var(--muted)">🪙</span>
-            <input type="number" class="slip-input" id="slip-amount-{{ match.id }}"
-                   min="10" max="1000" value="50"
-                   oninput="updatePotential({{ match.id }})">
-            <div class="slip-potential">
-              <div class="slip-pot-lbl pixel-text">GANAS</div>
-              <div class="slip-pot-val pixel-text" id="slip-pot-{{ match.id }}">—</div>
-            </div>
-          </div>
-          <button class="slip-confirm-btn" id="slip-btn-{{ match.id }}"
-                  onclick="confirmBet({{ match.id }})">
-            <span class="pixel-text" style="font-size:.42rem">CONFIRMAR APUESTA</span>
-          </button>
-          <button class="slip-cancel-btn" onclick="cancelBet({{ match.id }})">cancelar</button>
-        </div>
-
       </div>{# /market-content #}
     </div>{# /bmc-markets #}
   </div>{# /bet-match-card #}
@@ -134,14 +113,48 @@
   <div class="empty-state">No hay partidos disponibles para apostar ahora mismo.</div>
   {% endif %}
 
+  <!-- ══ COMBINADAS ACTIVAS ═════════════════════════════════ -->
+  {% if active_parlays %}
+  <div class="section-header" style="margin-top:24px;margin-bottom:8px">
+    <span class="pixel-text section-title">MIS COMBINADAS</span>
+  </div>
+  <div class="parlay-list">
+    {% for p in active_parlays %}
+    <div class="parlay-card" id="parlay-{{ p.id }}">
+      <div class="parlay-top">
+        <span class="parlay-tag pixel-text">🎟️ COMBINADA ×{{ p.leg_count }}</span>
+        <span class="parlay-odds pixel-text">@ {{ p.total_odds }}</span>
+      </div>
+      <div class="parlay-legs">
+        {% for leg in p.legs %}
+        <div class="parlay-leg {% if leg.result == 'won' %}leg-won{% elif leg.result == 'lost' %}leg-lost{% endif %}">
+          <span class="pleg-teams">{{ flag(leg.match.team1) }} {{ leg.match.team1.name[:8] }} vs {{ leg.match.team2.name[:8] }} {{ flag(leg.match.team2) }}</span>
+          <span class="pleg-pick">{{ leg.market_label }}: <b>{{ leg.outcome_label }}</b> @ {{ leg.odds }}</span>
+          {% if leg.result == 'won' %}<span class="pleg-mark">✓</span>{% elif leg.result == 'lost' %}<span class="pleg-mark">✗</span>{% else %}<span class="pleg-mark pleg-wait">•</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="parlay-foot">
+        <span class="parlay-stake">{{ p.amount }}🪙 → <span class="glow-green pixel-text">{{ p.potential_win }}🪙</span></span>
+        {% if p.cancellable %}
+        <button class="cancel-bet-btn" onclick="cancelParlay({{ p.id }})">✕ cancelar y devolver</button>
+        {% else %}
+        <span class="parlay-locked">🔒 en juego</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- ══ APUESTAS ACTIVAS ═══════════════════════════════════ -->
   {% if active_bets %}
   <div class="section-header" style="margin-top:24px;margin-bottom:8px">
-    <span class="pixel-text section-title">MIS APUESTAS ACTIVAS</span>
+    <span class="pixel-text section-title">MIS APUESTAS SIMPLES</span>
   </div>
   <div class="active-bets-list">
     {% for b in active_bets %}
-    <div class="abet-row">
+    <div class="abet-row" id="bet-{{ b.id }}">
       <div class="abet-match">
         {{ flag(b.match.team1) }} {{ b.match.team1.name[:6] }} vs {{ b.match.team2.name[:6] }} {{ flag(b.match.team2) }}
       </div>
@@ -150,6 +163,9 @@
       <div class="abet-odds pixel-text">@ {{ b.odds }}</div>
       <div class="abet-stake">{{ b.amount }}🪙</div>
       <div class="abet-potential glow-green pixel-text">→ {{ b.potential_win }}🪙</div>
+      {% if not b.match.is_locked and b.match.goals1 is none %}
+      <button class="cancel-bet-btn" onclick="cancelBet({{ b.id }})">✕ cancelar</button>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -179,19 +195,52 @@
   </div>
   {% endif %}
 
+  <div style="height:140px"></div>{# espacio para el boleto fijo #}
+</div>
+
+<!-- ══ BOLETO GLOBAL (fijo) ════════════════════════════════════ -->
+<div class="boleto hidden" id="boleto">
+  <div class="boleto-head" onclick="toggleBoletoBody()">
+    <span class="boleto-title pixel-text">🎟️ BOLETO <span id="boletoCount">0</span>/10</span>
+    <span class="boleto-combo pixel-text" id="boletoCombo">—</span>
+    <span class="boleto-collapse" id="boletoCollapse">▼</span>
+  </div>
+  <div class="boleto-body" id="boletoBody">
+    <div class="boleto-legs" id="boletoLegs"></div>
+    <div class="boleto-amounts">
+      {% for v in [10, 25, 50, 100, 200] %}
+      <button class="slip-amt-btn" onclick="setBoletoAmount({{ v }})">{{ v }}</button>
+      {% endfor %}
+      <button class="slip-amt-btn slip-allin" onclick="setBoletoAmountMax()">MAX</button>
+    </div>
+    <div class="boleto-stake-row">
+      <span class="pixel-text" style="font-size:.4rem;color:var(--muted)">🪙</span>
+      <input type="number" class="slip-input" id="boletoAmount" min="10" max="1000" value="50" oninput="updateBoletoPot()">
+      <div class="slip-potential">
+        <div class="slip-pot-lbl pixel-text">GANAS</div>
+        <div class="slip-pot-val pixel-text" id="boletoPot">—</div>
+      </div>
+    </div>
+    <div class="boleto-actions">
+      <button class="boleto-clear" onclick="clearBoleto()">VACIAR</button>
+      <button class="boleto-confirm" id="boletoConfirm" onclick="confirmBoleto()">
+        <span class="pixel-text" style="font-size:.42rem">CONFIRMAR</span>
+      </button>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const userCoins = parseInt(document.getElementById('globalCoins').textContent);
-let currentCoins = userCoins;
+let currentCoins = parseInt(document.getElementById('globalCoins').textContent) || 0;
 
-// Estado del bet slip por partido
-const slipState = {};  // matchId -> {market, outcome, odds, label}
+// ── Selecciones del boleto ──
+// leg: {key, matchId, market, marketName, outcome, label, odds, t1, t2}
+let slip = [];
 
 function toggleMarkets(matchId) {
-  const panel = document.getElementById('markets-' + matchId);
+  const panel  = document.getElementById('markets-' + matchId);
   const toggle = document.getElementById('toggle-' + matchId);
   if (panel.classList.contains('hidden')) {
     panel.classList.remove('hidden');
@@ -206,7 +255,7 @@ function toggleMarkets(matchId) {
 function loadOdds(matchId) {
   const loading = document.getElementById('loading-' + matchId);
   const content = document.getElementById('market-content-' + matchId);
-  if (!content.classList.contains('hidden')) return; // already loaded
+  if (!content.classList.contains('hidden')) return; // ya cargado
 
   fetch('/api/casa/odds/' + matchId)
     .then(r => r.json())
@@ -215,22 +264,19 @@ function loadOdds(matchId) {
         loading.innerHTML = '<div class="pixel-text" style="font-size:.38rem;color:var(--secondary);padding:12px">🔒 Apuestas cerradas para este partido.</div>';
         return;
       }
-      // Update odds in DOM
       Object.entries(data.odds).forEach(([market, outcomes]) => {
         Object.entries(outcomes).forEach(([outcome, odds]) => {
           const el = document.getElementById('odd-' + matchId + '-' + market + '-' + outcome);
           if (el) el.textContent = odds;
+          // si la cuota de una selección ya en el boleto cambió, actualízala
+          const leg = slip.find(l => l.key === matchId + '-' + market && l.outcome === outcome);
+          if (leg) { leg.odds = parseFloat(odds); }
         });
       });
-      // Mark already-bet markets
-      if (data.user_bets) {
-        Object.entries(data.user_bets).forEach(([market, bet]) => {
-          const mb = document.getElementById('mb-' + matchId + '-' + market);
-          if (mb) mb.classList.add('market-done');
-        });
-      }
+      renderBoleto();
       loading.classList.add('hidden');
       content.classList.remove('hidden');
+      syncSelectedButtons();
     })
     .catch(() => {
       loading.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:10px">Error cargando cuotas.</div>';
@@ -243,117 +289,155 @@ function selectOdds(btn) {
   const outcome = btn.dataset.outcome;
   const odds    = parseFloat(btn.querySelector('.ob-odds').textContent);
   const label   = btn.querySelector('.ob-label').textContent;
+  const panel   = document.getElementById('markets-' + matchId);
+  const t1 = panel ? panel.dataset.t1 : '';
+  const t2 = panel ? panel.dataset.t2 : '';
+  const key = matchId + '-' + market;
 
-  // Deselect siblings
-  const oddsRow = document.getElementById('odds-row-' + matchId + '-' + market);
-  if (oddsRow) oddsRow.querySelectorAll('.odds-btn').forEach(b => b.classList.remove('selected'));
-
-  // If re-clicking same → deselect and hide slip
-  if (slipState[matchId] && slipState[matchId].market === market && slipState[matchId].outcome === outcome) {
-    delete slipState[matchId];
-    hideBetSlip(matchId);
-    return;
+  const existing = slip.find(l => l.key === key);
+  if (existing && existing.outcome === outcome) {
+    // re-clic en la misma → quitar
+    slip = slip.filter(l => l.key !== key);
+  } else if (existing) {
+    // mismo mercado, otra opción → reemplazar
+    existing.outcome = outcome; existing.odds = odds; existing.label = label;
+  } else {
+    if (slip.length >= 10) { showFlash('Máximo 10 selecciones en la combinada.', 'error'); return; }
+    slip.push({ key, matchId, market, marketName: btn.dataset.marketname || market,
+                outcome, label, odds, t1, t2 });
   }
-
-  btn.classList.add('selected');
-  slipState[matchId] = { market, outcome, odds, label };
-  showBetSlip(matchId, market, outcome, odds, label);
+  syncSelectedButtons();
+  renderBoleto();
 }
 
-function showBetSlip(matchId, market, outcome, odds, label) {
-  const slip = document.getElementById('slip-' + matchId);
-  const sel  = document.getElementById('slip-sel-' + matchId);
-  const marketNames = {'1x2': 'Ganador', 'goals25': '+2.5 Goles', 'btts': 'Ambos Marcan'};
-  sel.innerHTML = `<span class="slip-market">${marketNames[market] || market}</span>
-                   <span class="slip-pick">${label}</span>
-                   <span class="slip-odd pixel-text">${odds}</span>`;
-  slip.classList.remove('hidden');
-  updatePotential(matchId);
-  slip.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function syncSelectedButtons() {
+  document.querySelectorAll('.odds-btn.selected').forEach(b => b.classList.remove('selected'));
+  slip.forEach(l => {
+    const b = document.getElementById('ob-' + l.matchId + '-' + l.market + '-' + l.outcome);
+    if (b) b.classList.add('selected');
+  });
 }
 
-function hideBetSlip(matchId) {
-  document.getElementById('slip-' + matchId).classList.add('hidden');
+function comboOdds() {
+  return slip.reduce((acc, l) => acc * l.odds, 1);
 }
 
-function setAmount(matchId, val) {
-  const inp = document.getElementById('slip-amount-' + matchId);
-  inp.value = Math.min(val, currentCoins, 1000);
-  updatePotential(matchId);
+function renderBoleto() {
+  const box   = document.getElementById('boleto');
+  const count = document.getElementById('boletoCount');
+  const combo = document.getElementById('boletoCombo');
+  const legs  = document.getElementById('boletoLegs');
+  count.textContent = slip.length;
+  if (slip.length === 0) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+
+  const total = comboOdds();
+  combo.textContent = (slip.length === 1 ? 'SIMPLE' : 'COMBINADA') + ' @ ' + total.toFixed(2);
+
+  legs.innerHTML = slip.map(l => `
+    <div class="boleto-leg">
+      <div class="bl-info">
+        <div class="bl-match">${l.t1} vs ${l.t2}</div>
+        <div class="bl-pick">${l.marketName}: <b>${l.label}</b></div>
+      </div>
+      <span class="bl-odd pixel-text">${l.odds.toFixed(2)}</span>
+      <button class="bl-remove" onclick="removeLeg('${l.key}')">✕</button>
+    </div>`).join('');
+  updateBoletoPot();
 }
 
-function setAmountAll(matchId) {
-  setAmount(matchId, Math.min(currentCoins, 1000));
+function removeLeg(key) {
+  slip = slip.filter(l => l.key !== key);
+  syncSelectedButtons();
+  renderBoleto();
 }
 
-function updatePotential(matchId) {
-  const inp  = document.getElementById('slip-amount-' + matchId);
-  const pot  = document.getElementById('slip-pot-' + matchId);
-  const st   = slipState[matchId];
-  if (!st || !inp.value) { pot.textContent = '—'; return; }
+function clearBoleto() {
+  slip = [];
+  syncSelectedButtons();
+  renderBoleto();
+}
+
+function toggleBoletoBody() {
+  const body = document.getElementById('boletoBody');
+  const arr  = document.getElementById('boletoCollapse');
+  body.classList.toggle('collapsed');
+  arr.textContent = body.classList.contains('collapsed') ? '▲' : '▼';
+}
+
+function setBoletoAmount(v) {
+  const inp = document.getElementById('boletoAmount');
+  inp.value = Math.max(10, Math.min(v, currentCoins, 1000));
+  updateBoletoPot();
+}
+function setBoletoAmountMax() { setBoletoAmount(Math.min(currentCoins, 1000)); }
+
+function updateBoletoPot() {
+  const inp = document.getElementById('boletoAmount');
+  const pot = document.getElementById('boletoPot');
   const amount = parseInt(inp.value) || 0;
-  pot.textContent = Math.floor(amount * st.odds) + ' 🪙';
+  if (slip.length === 0 || !amount) { pot.textContent = '—'; return; }
+  pot.textContent = Math.floor(amount * comboOdds()) + ' 🪙';
 }
 
-function cancelBet(matchId) {
-  const st = slipState[matchId];
-  if (st) {
-    const btn = document.getElementById('ob-' + matchId + '-' + st.market + '-' + st.outcome);
-    if (btn) btn.classList.remove('selected');
-    delete slipState[matchId];
-  }
-  hideBetSlip(matchId);
-}
-
-function confirmBet(matchId) {
-  const st = slipState[matchId];
-  if (!st) return;
-  const amount = parseInt(document.getElementById('slip-amount-' + matchId).value) || 0;
-  if (amount < 10) { showFlash('Mínimo 10 🪙 por apuesta.', 'error'); return; }
+function confirmBoleto() {
+  if (slip.length === 0) return;
+  const amount = parseInt(document.getElementById('boletoAmount').value) || 0;
+  if (amount < 10) { showFlash('Mínimo 10 🪙.', 'error'); return; }
   if (amount > currentCoins) { showFlash('No tienes suficientes monedas.', 'error'); return; }
 
-  const btn = document.getElementById('slip-btn-' + matchId);
+  const btn = document.getElementById('boletoConfirm');
   btn.disabled = true;
-  btn.querySelector('span').textContent = 'APOSTANDO...';
+  btn.querySelector('span').textContent = 'ENVIANDO...';
 
-  fetch('/casa/apostar', {
+  fetch('/casa/boleto', {
     method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({
-      match_id: matchId, market: st.market,
-      outcome: st.outcome, amount: amount
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      amount,
+      legs: slip.map(l => ({ match_id: l.matchId, market: l.market, outcome: l.outcome }))
     })
   }).then(r => r.json()).then(data => {
     if (data.ok) {
-      currentCoins = data.coins;
-      document.getElementById('globalCoins').textContent = currentCoins;
-      // Mark market as done
-      const mb = document.getElementById('mb-' + matchId + '-' + st.market);
-      if (mb) {
-        mb.classList.add('market-done');
-        const placed = document.createElement('div');
-        placed.className = 'market-placed-badge';
-        placed.textContent = '✓ ' + st.label + ' @ ' + data.odds + ' · ' + amount + '🪙';
-        mb.querySelector('.market-header').appendChild(placed);
-        const oddsRow = document.getElementById('odds-row-' + matchId + '-' + st.market);
-        if (oddsRow) oddsRow.remove();
-      }
-      hideBetSlip(matchId);
-      delete slipState[matchId];
-      showFlash('✓ Apuesta de ' + amount + '🪙 registrada. Ganas ' + data.potential + '🪙 si aciertas.', 'success');
-      // Increment active bets counter
-      const cnt = document.getElementById('activeBetsCount');
-      if (cnt) cnt.textContent = (parseInt(cnt.textContent) || 0) + 1;
+      const msg = data.kind === 'combo'
+        ? `✓ Combinada de ${data.legs} (@${data.total_odds}) registrada. Ganas ${data.potential}🪙 si aciertas todas.`
+        : `✓ Apuesta de ${amount}🪙 registrada. Ganas ${data.potential}🪙 si aciertas.`;
+      sessionStorage.setItem('casaFlash', msg);
+      location.reload();
     } else {
       showFlash(data.error || 'Error al apostar.', 'error');
       btn.disabled = false;
-      btn.querySelector('span').textContent = 'CONFIRMAR APUESTA';
+      btn.querySelector('span').textContent = 'CONFIRMAR';
     }
   }).catch(() => {
     showFlash('Error de red.', 'error');
     btn.disabled = false;
-    btn.querySelector('span').textContent = 'CONFIRMAR APUESTA';
+    btn.querySelector('span').textContent = 'CONFIRMAR';
   });
 }
+
+function cancelBet(betId) {
+  if (!confirm('¿Cancelar esta apuesta y recuperar las monedas?')) return;
+  fetch('/casa/cancelar/' + betId, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+      if (data.ok) { sessionStorage.setItem('casaFlash', '↩ Apuesta cancelada y monedas devueltas.'); location.reload(); }
+      else showFlash(data.error || 'No se pudo cancelar.', 'error');
+    }).catch(() => showFlash('Error de red.', 'error'));
+}
+
+function cancelParlay(parlayId) {
+  if (!confirm('¿Cancelar esta combinada y recuperar las monedas?')) return;
+  fetch('/casa/combinada/cancelar/' + parlayId, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+      if (data.ok) { sessionStorage.setItem('casaFlash', '↩ Combinada cancelada y monedas devueltas.'); location.reload(); }
+      else showFlash(data.error || 'No se pudo cancelar.', 'error');
+    }).catch(() => showFlash('Error de red.', 'error'));
+}
+
+// Mensaje tras recargar
+window.addEventListener('DOMContentLoaded', () => {
+  const m = sessionStorage.getItem('casaFlash');
+  if (m) { sessionStorage.removeItem('casaFlash'); showFlash(m, 'success'); }
+});
 </script>
 {% endblock %}
