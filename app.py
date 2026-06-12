@@ -31,6 +31,9 @@ def _ensure_schema():
             pending.append("ALTER TABLE users ADD COLUMN gift_coins INTEGER DEFAULT 0")
         if 'gift_alert' not in cols:
             pending.append("ALTER TABLE users ADD COLUMN gift_alert INTEGER DEFAULT 0")
+        mcols = {c['name'] for c in _inspect(db.engine).get_columns('matches')}
+        if 'total_corners' not in mcols:
+            pending.append("ALTER TABLE matches ADD COLUMN total_corners INTEGER")
         if pending:
             with db.engine.connect() as conn:
                 for sql in pending:
@@ -357,6 +360,16 @@ BETTING_MARKETS = {
         'base_probs': {'odd': 0.51, 'even': 0.49},
         'margin': 1.050,
     },
+    'corners': {
+        'name': 'Córners (total)',
+        'icon': '🚩',
+        'outcomes': ['c0_7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14p'],
+        'labels': {'c0_7': '≤7', 'c8': '8', 'c9': '9', 'c10': '10',
+                   'c11': '11', 'c12': '12', 'c13': '13', 'c14p': '14+'},
+        'base_probs': {'c0_7': 0.16, 'c8': 0.10, 'c9': 0.12, 'c10': 0.13,
+                       'c11': 0.12, 'c12': 0.10, 'c13': 0.08, 'c14p': 0.19},
+        'margin': 1.100,
+    },
 }
 # Corrección clave btts
 BETTING_MARKETS['btts']['base_probs'] = {'yes': 0.524, 'no': 0.476}
@@ -395,7 +408,7 @@ def _winning_outcomes(match):
     """Resultado ganador de cada mercado para un partido jugado."""
     g1, g2 = match.goals1, match.goals2
     total_goals = g1 + g2
-    return {
+    outcomes = {
         '1x2':    '1' if g1 > g2 else ('X' if g1 == g2 else '2'),
         'goals25': 'over' if total_goals > 2.5 else 'under',
         'goals15': 'o15' if total_goals > 1.5 else 'u15',
@@ -403,6 +416,17 @@ def _winning_outcomes(match):
         'btts':    'yes' if (g1 > 0 and g2 > 0) else 'no',
         'oddeven': 'odd' if total_goals % 2 == 1 else 'even',
     }
+    # Córners: solo se liquidan cuando el admin ha introducido el total
+    if match.total_corners is not None:
+        c = match.total_corners
+        if c <= 7:
+            cw = 'c0_7'
+        elif c >= 14:
+            cw = 'c14p'
+        else:
+            cw = f'c{c}'
+        outcomes['corners'] = cw
+    return outcomes
 
 
 def settle_match_bets(match):
@@ -1447,6 +1471,8 @@ def admin_results():
         try:
             match.goals1 = int(request.form['goals1'])
             match.goals2 = int(request.form['goals2'])
+            corners = (request.form.get('total_corners') or '').strip()
+            match.total_corners = int(corners) if corners else None
             match.is_locked = True
             recalc_match(match)
             db.session.commit()
@@ -1761,6 +1787,7 @@ if __name__ == '__main__':
                 "ALTER TABLE users ADD COLUMN bet_winnings INTEGER DEFAULT 0",
                 "ALTER TABLE users ADD COLUMN gift_coins INTEGER DEFAULT 0",
                 "ALTER TABLE users ADD COLUMN gift_alert INTEGER DEFAULT 0",
+                "ALTER TABLE matches ADD COLUMN total_corners INTEGER",
             ]:
                 try:
                     conn.execute(text(sql))

@@ -119,6 +119,7 @@ class Match(db.Model):
     double_points = db.Column(db.Boolean, default=False)
     is_daily_bonus = db.Column(db.Boolean, default=False)
     match_number = db.Column(db.Integer, default=0)
+    total_corners = db.Column(db.Integer)  # córners totales (entrada manual del admin)
 
     team1 = db.relationship('Team', foreign_keys=[team1_id])
     team2 = db.relationship('Team', foreign_keys=[team2_id])
@@ -302,6 +303,7 @@ class Bet(db.Model):
 MARKET_LABELS = {
     '1x2': 'Ganador', 'goals25': '+2.5 Goles', 'btts': 'Ambos Marcan',
     'goals15': '+1.5 Goles', 'goals35': '+3.5 Goles', 'oddeven': 'Par / Impar',
+    'corners': 'Córners',
 }
 OUTCOME_LABELS = {
     '1': '1 (local)', 'X': 'Empate', '2': '2 (visitante)',
@@ -309,6 +311,8 @@ OUTCOME_LABELS = {
     'o15': 'Más de 1.5', 'u15': 'Menos de 1.5',
     'o35': 'Más de 3.5', 'u35': 'Menos de 3.5',
     'odd': 'Impar', 'even': 'Par',
+    'c0_7': '≤7 córners', 'c8': '8 córners', 'c9': '9 córners', 'c10': '10 córners',
+    'c11': '11 córners', 'c12': '12 córners', 'c13': '13 córners', 'c14p': '14+ córners',
 }
 
 

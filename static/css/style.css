@@ -2253,4 +2253,16 @@ body {
 }
 .boleto-confirm:hover { box-shadow: 0 3px 0 #0077a8, 0 0 22px rgba(0,180,255,.7); }
 .boleto-confirm:active { transform: translateY(2px); box-shadow: 0 1px 0 #0077a8; }
+
+/* Mercado de córners: 8 opciones en rejilla 4×2 */
+.market-block[data-market="corners"] .odds-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex-wrap: wrap;
+}
+.market-block[data-market="corners"] .odds-btn { padding: 7px 4px; }
+.market-block[data-market="corners"] .ob-label { font-size: .72rem; color: var(--text2); }
+
+/* Campo de córners en el admin de resultados */
+.rec-corners { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
+.rec-corners span { font-size: .9rem; }
+.rec-corners .score-inp { width: 64px; }
 .boleto-confirm:disabled { opacity: .6; cursor: default; }

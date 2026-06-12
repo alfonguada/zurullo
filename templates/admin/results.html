@@ -31,6 +31,13 @@
           <input type="number" name="goals1" class="score-inp" min="0" max="30" value="{{ match.goals1 or 0 }}" required>
           <span style="color:var(--muted)">—</span>
           <input type="number" name="goals2" class="score-inp" min="0" max="30" value="{{ match.goals2 or 0 }}" required>
+          <label class="rec-corners">
+            <span>🚩</span>
+            <input type="number" name="total_corners" class="score-inp" min="0" max="40"
+                   placeholder="córners"
+                   value="{{ match.total_corners if match.total_corners is not none else '' }}"
+                   title="Córners totales (para liquidar apuestas de córners)">
+          </label>
           <button type="submit" class="btn-pixel btn-sm btn-pink" onclick="return confirm('¿Guardar resultado?')">
             {{ '✓ ACTUALIZAR' if match.result_entered else '► GUARDAR' }}
           </button>
