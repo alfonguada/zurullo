@@ -27,6 +27,7 @@
         <a href="{{ url_for('dashboard') }}"   class="dnl {% if request.endpoint=='dashboard' %}active{% endif %}">INICIO</a>
         <a href="{{ url_for('predictions') }}" class="dnl {% if request.endpoint=='predictions' %}active{% endif %}">PORRAS</a>
         <a href="{{ url_for('leaderboard') }}" class="dnl {% if request.endpoint=='leaderboard' %}active{% endif %}">RANKING</a>
+        <a href="{{ url_for('stats') }}"       class="dnl {% if request.endpoint=='stats' %}active{% endif %}">STATS</a>
         <a href="{{ url_for('activity') }}"    class="dnl {% if request.endpoint=='activity' %}active{% endif %}">ACTIVIDAD</a>
         <a href="{{ url_for('collection') }}"  class="dnl {% if request.endpoint in ('collection','my_packs','open_pack','buy_pack') %}active{% endif %}">
           ÁLBUM {% if pending_packs > 0 %}<span class="nav-badge">{{ pending_packs }}</span>{% endif %}
@@ -91,6 +92,10 @@
   <a href="{{ url_for('leaderboard') }}" class="bn-item {% if request.endpoint=='leaderboard' %}active{% endif %}">
     <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 16V8h2v8zm4-2V6h2v8zm4 4V10h2v8zM3 20h18v2H3z"/></svg>
     <span class="bn-label">Ranking</span>
+  </a>
+  <a href="{{ url_for('stats') }}" class="bn-item {% if request.endpoint=='stats' %}active{% endif %}">
+    <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+    <span class="bn-label">Stats</span>
   </a>
   <a href="{{ url_for('activity') }}" class="bn-item {% if request.endpoint=='activity' %}active{% endif %}">
     <svg class="bn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 3.21-1.81 6-4.72 7.28L13 17v5h5l-1.22-1.22C19.91 19.07 22 15.76 22 12c0-5.18-3.95-9.45-9-9.95zM11 2.05C5.95 2.55 2 6.82 2 12c0 3.76 2.09 7.07 5.22 8.78L6 22h5v-5l-2.28 2.28C7.81 18 6 15.21 6 12c0-4.08 3.05-7.44 7-7.93V2.05z"/></svg>

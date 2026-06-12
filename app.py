@@ -539,6 +539,131 @@ def predict(match_id):
     return jsonify({'ok': True, 'g1': g1, 'g2': g2})
 
 
+@app.route('/stats')
+@login_required
+def stats():
+    if not current_user.onboarding_done:
+        return redirect(url_for('onboarding'))
+
+    from collections import Counter
+    from sqlalchemy import func
+
+    all_users = User.query.all()
+    users_ranked = sorted(all_users, key=lambda u: (u.total_points, u.exact_scores), reverse=True)
+    played_matches = (Match.query
+                      .filter(Match.goals1.isnot(None))
+                      .order_by(Match.match_date).all())
+
+    # ── Global KPIs ───────────────────────────────────────────────
+    total_preds   = Prediction.query.count()
+    scored_preds  = Prediction.query.filter(Prediction.points_earned.isnot(None)).count()
+    correct_preds = Prediction.query.filter(Prediction.points_earned > 0).count()
+    exact_preds   = Prediction.query.filter(Prediction.points_earned.in_([3, 6])).count()
+    global_acc    = round(correct_preds / scored_preds * 100) if scored_preds > 0 else 0
+
+    # ── Per-user stats ────────────────────────────────────────────
+    user_stats = []
+    for i, u in enumerate(users_ranked):
+        u_scored  = Prediction.query.filter(
+            Prediction.user_id == u.id, Prediction.points_earned.isnot(None)).count()
+        u_correct = Prediction.query.filter(
+            Prediction.user_id == u.id, Prediction.points_earned > 0).count()
+        u_exact   = Prediction.query.filter(
+            Prediction.user_id == u.id, Prediction.points_earned.in_([3, 6])).count()
+        user_stats.append({
+            'rank': i + 1,
+            'user': u,
+            'scored': u_scored,
+            'correct': u_correct,
+            'exact': u_exact,
+            'accuracy': round(u_correct / u_scored * 100) if u_scored > 0 else 0,
+            'coins_earned': u.coins_earned,
+            'coins_spent': u.coins_spent or 0,
+            'coins': u.coins,
+        })
+
+    # ── Points timeline (bulk fetch) ──────────────────────────────
+    played_ids = [m.id for m in played_matches]
+    preds_bulk = {}
+    if played_ids:
+        for p in Prediction.query.filter(Prediction.match_id.in_(played_ids)).all():
+            preds_bulk[(p.user_id, p.match_id)] = p.points_earned or 0
+
+    timeline_labels, timeline_data = [], {u.id: [] for u in all_users}
+    cumulative = {u.id: 0 for u in all_users}
+    for m in played_matches:
+        timeline_labels.append(f"{m.team1.name[:3].upper()}v{m.team2.name[:3].upper()}")
+        for u in all_users:
+            pts = preds_bulk.get((u.id, m.id), 0)
+            cumulative[u.id] += pts
+            timeline_data[u.id].append(cumulative[u.id])
+
+    # ── Per-match analysis ────────────────────────────────────────
+    match_stats = []
+    for m in played_matches:
+        mp = Prediction.query.filter_by(match_id=m.id).all()
+        n = len(mp)
+        if n == 0:
+            continue
+        correct_m = sum(1 for p in mp if (p.points_earned or 0) > 0)
+        exact_m   = sum(1 for p in mp if (p.points_earned or 0) in (3, 6))
+        sc_counts = Counter(f"{p.goals1}-{p.goals2}" for p in mp)
+        top_score, top_cnt = sc_counts.most_common(1)[0]
+        match_stats.append({
+            'match': m,
+            'total': n,
+            'correct': correct_m,
+            'exact': exact_m,
+            'accuracy': round(correct_m / n * 100),
+            'exact_pct': round(exact_m / n * 100),
+            'most_pred': top_score,
+            'most_pred_pct': round(top_cnt / n * 100),
+        })
+
+    # ── Prediction matrix (last 10 matches) ──────────────────────
+    matrix_matches = played_matches[-10:] if len(played_matches) > 10 else played_matches
+    matrix_ids     = [m.id for m in matrix_matches]
+    matrix_preds   = {}
+    if matrix_ids:
+        for p in Prediction.query.filter(Prediction.match_id.in_(matrix_ids)).all():
+            matrix_preds[(p.user_id, p.match_id)] = p
+
+    # ── Fun facts ─────────────────────────────────────────────────
+    # Best accuracy user
+    best_acc  = max(user_stats, key=lambda x: (x['accuracy'], x['scored'])) if user_stats else None
+    # Most exact scores
+    top_exact = max(user_stats, key=lambda x: x['exact']) if user_stats else None
+    # Hardest match (lowest accuracy)
+    hardest   = min(match_stats, key=lambda x: x['accuracy']) if match_stats else None
+    # Easiest match (highest accuracy)
+    easiest   = max(match_stats, key=lambda x: x['accuracy']) if match_stats else None
+    # Richest user (most coins)
+    richest   = max(user_stats, key=lambda x: x['coins']) if user_stats else None
+    # Most coins spent
+    biggest_spender = max(user_stats, key=lambda x: x['coins_spent']) if user_stats else None
+
+    return render_template('stats.html',
+        user_stats=user_stats,
+        match_stats=match_stats,
+        timeline_labels=timeline_labels,
+        timeline_data=timeline_data,
+        matrix_matches=matrix_matches,
+        matrix_preds=matrix_preds,
+        all_users=users_ranked,
+        global_acc=global_acc,
+        total_preds=total_preds,
+        correct_preds=correct_preds,
+        exact_preds=exact_preds,
+        played_count=len(played_matches),
+        best_acc=best_acc,
+        top_exact=top_exact,
+        hardest=hardest,
+        easiest=easiest,
+        richest=richest,
+        biggest_spender=biggest_spender,
+    )
+
+
 @app.route('/leaderboard')
 @login_required
 def leaderboard():

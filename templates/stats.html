@@ -1,0 +1,421 @@
+{% extends 'base.html' %}
+{% block title %}Estadísticas — Zurullo WC{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="page-container stats-page">
+
+  <div class="page-header">
+    <div class="pixel-text glow-blue" style="font-size:1rem">📊 ESTADÍSTICAS</div>
+    <div style="font-size:.72rem;color:var(--muted)">{{ played_count }} partidos jugados</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       GLOBAL KPIs
+  ══════════════════════════════════════════ -->
+  <div class="stats-kpi-grid">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">⚽</div>
+      <div class="kpi-val">{{ total_preds }}</div>
+      <div class="kpi-lbl">PORRAS<br>TOTALES</div>
+    </div>
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon">🎯</div>
+      <div class="kpi-val">{{ global_acc }}%</div>
+      <div class="kpi-lbl">ACIERTO<br>GLOBAL</div>
+    </div>
+    <div class="kpi-card kpi-yellow">
+      <div class="kpi-icon">✦</div>
+      <div class="kpi-val">{{ exact_preds }}</div>
+      <div class="kpi-lbl">EXACTOS<br>TOTALES</div>
+    </div>
+    <div class="kpi-card kpi-pink">
+      <div class="kpi-icon">🏆</div>
+      <div class="kpi-val">{{ all_users | length }}</div>
+      <div class="kpi-lbl">JUGADORES<br>ACTIVOS</div>
+    </div>
+  </div>
+
+  {% if played_count == 0 %}
+  <div class="empty-state" style="margin-top:32px">
+    <div style="font-size:3rem;margin-bottom:12px">📊</div>
+    <div>Las estadísticas aparecerán cuando se jueguen los primeros partidos.</div>
+  </div>
+  {% else %}
+
+  <!-- ══════════════════════════════════════════
+       FUN FACTS
+  ══════════════════════════════════════════ -->
+  <div class="fun-facts-grid">
+    {% if best_acc and best_acc.scored >= 3 %}
+    <div class="fun-card fun-green">
+      <div class="fun-icon">🦅</div>
+      <div class="fun-body">
+        <div class="fun-title">EL ÁGUILA</div>
+        <div class="fun-val">{{ best_acc.user.name }}</div>
+        <div class="fun-sub">{{ best_acc.accuracy }}% de acierto</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if top_exact and top_exact.exact > 0 %}
+    <div class="fun-card fun-yellow">
+      <div class="fun-icon">🧙</div>
+      <div class="fun-body">
+        <div class="fun-title">EL ADIVINO</div>
+        <div class="fun-val">{{ top_exact.user.name }}</div>
+        <div class="fun-sub">{{ top_exact.exact }} marcadores exactos</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if richest %}
+    <div class="fun-card fun-orange">
+      <div class="fun-icon">🤑</div>
+      <div class="fun-body">
+        <div class="fun-title">MÁS RICO</div>
+        <div class="fun-val">{{ richest.user.name }}</div>
+        <div class="fun-sub">{{ richest.coins }} 🪙 en el banco</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if hardest %}
+    <div class="fun-card fun-pink">
+      <div class="fun-icon">💀</div>
+      <div class="fun-body">
+        <div class="fun-title">PARTIDO SORPRESA</div>
+        <div class="fun-val">{{ hardest.match.team1.name }} vs {{ hardest.match.team2.name }}</div>
+        <div class="fun-sub">Solo el {{ hardest.accuracy }}% acertó</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       EVOLUCIÓN DE PUNTOS (line chart)
+  ══════════════════════════════════════════ -->
+  {% if timeline_labels %}
+  <div class="stats-card">
+    <div class="stats-card-header">
+      <span class="stats-card-title pixel-text">📈 EVOLUCIÓN DE PUNTOS</span>
+      <span class="stats-card-sub">Acumulado partido a partido</span>
+    </div>
+    <div class="chart-scroll-wrap">
+      <div class="chart-container" style="min-width:{{ [timeline_labels|length * 60, 300]|max }}px">
+        <canvas id="timelineChart"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════
+       DOS COLUMNAS: PUNTOS + MONEDAS
+  ══════════════════════════════════════════ -->
+  <div class="stats-two-col">
+
+    <!-- Comparativa de puntos (stacked horizontal bar) -->
+    <div class="stats-card">
+      <div class="stats-card-header">
+        <span class="stats-card-title pixel-text">🏅 PUNTOS POR CATEGORÍA</span>
+        <span class="stats-card-sub">Partidos · Bonus · Peor sel.</span>
+      </div>
+      <div class="chart-container" style="height:{{ [all_users|length * 52, 200]|max }}px">
+        <canvas id="pointsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Economía de monedas (grouped bar) -->
+    <div class="stats-card">
+      <div class="stats-card-header">
+        <span class="stats-card-title pixel-text">🪙 ECONOMÍA DE MONEDAS</span>
+        <span class="stats-card-sub">Ganadas vs gastadas</span>
+      </div>
+      <div class="chart-container" style="height:{{ [all_users|length * 52, 200]|max }}px">
+        <canvas id="coinsChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TABLA DE PRECISIÓN
+  ══════════════════════════════════════════ -->
+  <div class="stats-card">
+    <div class="stats-card-header">
+      <span class="stats-card-title pixel-text">🎯 TABLA DE PRECISIÓN</span>
+      <span class="stats-card-sub">Aciertos, exactos y porras por jugador</span>
+    </div>
+    <div class="acc-table">
+      {% for s in user_stats %}
+      <div class="acc-row {% if s.user.id == current_user.id %}acc-me{% endif %}">
+        <div class="acc-rank pixel-text">
+          {% if s.rank == 1 %}🥇{% elif s.rank == 2 %}🥈{% elif s.rank == 3 %}🥉{% else %}#{{ s.rank }}{% endif %}
+        </div>
+        <div class="acc-player">
+          <span class="av av-sm" style="background:{{ s.user.avatar_bg }}">{{ s.user.avatar_emoji }}</span>
+          <span class="acc-name">{{ s.user.name }}</span>
+        </div>
+        <div class="acc-bars">
+          <div class="acc-bar-row">
+            <span class="acc-bar-lbl">Acierto</span>
+            <div class="acc-bar-track">
+              <div class="acc-bar-fill acc-fill-green" style="width:{{ s.accuracy }}%"></div>
+            </div>
+            <span class="acc-bar-val">{{ s.accuracy }}%</span>
+          </div>
+          <div class="acc-bar-row">
+            <span class="acc-bar-lbl">Exactos</span>
+            <div class="acc-bar-track">
+              <div class="acc-bar-fill acc-fill-yellow" style="width:{{ ((s.exact / s.scored * 100)|round|int) if s.scored > 0 else 0 }}%"></div>
+            </div>
+            <span class="acc-bar-val">{{ s.exact }}</span>
+          </div>
+        </div>
+        <div class="acc-numbers">
+          <div class="acc-num"><span class="acc-num-val pixel-text" style="color:var(--primary)">{{ s.correct }}</span><span class="acc-num-lbl">acertos</span></div>
+          <div class="acc-num"><span class="acc-num-val pixel-text" style="color:var(--accent)">{{ s.exact }}</span><span class="acc-num-lbl">exactos</span></div>
+          <div class="acc-num"><span class="acc-num-val pixel-text" style="color:var(--muted)">{{ s.scored }}</span><span class="acc-num-lbl">jugados</span></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ANÁLISIS DE PARTIDOS
+  ══════════════════════════════════════════ -->
+  {% if match_stats %}
+  <div class="stats-card">
+    <div class="stats-card-header">
+      <span class="stats-card-title pixel-text">⚽ ANÁLISIS POR PARTIDO</span>
+      <span class="stats-card-sub">Aciertos colectivos y la porra más votada</span>
+    </div>
+    <div class="match-analysis-grid">
+      {% for ms in match_stats | sort(attribute='accuracy') %}
+      <div class="ma-card
+        {% if ms.accuracy >= 60 %}ma-easy
+        {% elif ms.accuracy >= 30 %}ma-medium
+        {% else %}ma-hard{% endif %}">
+        <div class="ma-teams">
+          <span class="ma-flag">{{ flag(ms.match.team1) }}</span>
+          <div class="ma-score pixel-text">{{ ms.match.goals1 }}-{{ ms.match.goals2 }}</div>
+          <span class="ma-flag">{{ flag(ms.match.team2) }}</span>
+        </div>
+        <div class="ma-names">{{ ms.match.team1.name[:8] }} vs {{ ms.match.team2.name[:8] }}</div>
+        <div class="ma-acc-bar">
+          <div class="ma-acc-fill" style="width:{{ ms.accuracy }}%"></div>
+        </div>
+        <div class="ma-stats">
+          <span class="ma-stat ma-stat-acc">{{ ms.accuracy }}% acertaron</span>
+          <span class="ma-stat ma-stat-exact">✦ {{ ms.exact_pct }}% exactos</span>
+        </div>
+        <div class="ma-popular">
+          <span style="color:var(--muted);font-size:.65rem">MÁS VOTADO:</span>
+          <span class="ma-pop-score pixel-text">{{ ms.most_pred }}</span>
+          <span style="color:var(--muted);font-size:.65rem">({{ ms.most_pred_pct }}%)</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════
+       MATRIZ DE PORRAS (últimos 10 partidos)
+  ══════════════════════════════════════════ -->
+  {% if matrix_matches %}
+  <div class="stats-card">
+    <div class="stats-card-header">
+      <span class="stats-card-title pixel-text">🔢 MATRIZ DE PORRAS</span>
+      <span class="stats-card-sub">Últimos {{ matrix_matches|length }} partidos — ✦ exacto · ✓ acierto · ✗ fallo · — sin porra</span>
+    </div>
+    <div class="matrix-scroll">
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th class="matrix-th-player">Jugador</th>
+            {% for m in matrix_matches %}
+            <th class="matrix-th-match">
+              <div class="matrix-match-label">
+                {{ flag(m.team1) }}{{ flag(m.team2) }}
+              </div>
+              <div class="matrix-match-score pixel-text">{{ m.goals1 }}-{{ m.goals2 }}</div>
+            </th>
+            {% endfor %}
+            <th class="matrix-th-total">PTS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in user_stats %}
+          <tr class="{% if s.user.id == current_user.id %}matrix-me{% endif %}">
+            <td class="matrix-player">
+              <span class="av av-xs" style="background:{{ s.user.avatar_bg }}">{{ s.user.avatar_emoji }}</span>
+              <span class="matrix-name">{{ s.user.name }}</span>
+            </td>
+            {% for m in matrix_matches %}
+            {% set p = matrix_preds.get((s.user.id, m.id)) %}
+            <td class="matrix-cell
+              {% if p %}
+                {% if p.points_earned in [3,6] %}mc-exact
+                {% elif p.points_earned in [1,2] %}mc-correct
+                {% else %}mc-wrong{% endif %}
+              {% else %}mc-empty{% endif %}">
+              {% if p %}
+                {% if p.points_earned in [3,6] %}
+                <span class="mc-symbol">✦</span>
+                <span class="mc-score">{{ p.goals1 }}-{{ p.goals2 }}</span>
+                {% elif p.points_earned in [1,2] %}
+                <span class="mc-symbol">✓</span>
+                <span class="mc-score">{{ p.goals1 }}-{{ p.goals2 }}</span>
+                {% else %}
+                <span class="mc-symbol">✗</span>
+                <span class="mc-score">{{ p.goals1 }}-{{ p.goals2 }}</span>
+                {% endif %}
+              {% else %}
+                <span class="mc-empty-sym">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+            <td class="matrix-total pixel-text">{{ s.user.total_points }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}{# end played_count > 0 #}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ── Paleta de colores por usuario ─────────────────────── */
+const USER_COLORS = [
+  '#00bb55','#ee0055','#f0a000','#0099cc','#cc00ff',
+  '#ee6600','#00e5ff','#ff69b4','#2ed573','#ff4757'
+];
+
+/* ── Datos del servidor ─────────────────────────────────── */
+const users = {{ all_users | map(attribute='id') | list | tojson }};
+const userNames = {{ all_users | map(attribute='name') | list | tojson }};
+const userColors = {{ all_users | map(attribute='avatar_bg') | list | tojson }};
+const timelineLabels = {{ timeline_labels | tojson }};
+const timelineData = {{ timeline_data | tojson }};
+const userStats = {{ user_stats | map(attribute='user') | map(attribute='id') | list | tojson }};
+const matchPts  = {{ user_stats | map(attribute='user') | map(attribute='match_points') | list | tojson }};
+const bonusPts  = {{ user_stats | map(attribute='user') | map(attribute='bonus_points') | list | tojson }};
+const worstPts  = {{ user_stats | map(attribute='user') | map(attribute='worst_points') | list | tojson }};
+const coinsEarned = {{ user_stats | map(attribute='coins_earned') | list | tojson }};
+const coinsSpent  = {{ user_stats | map(attribute='coins_spent')  | list | tojson }};
+const labelNames  = {{ user_stats | map(attribute='user') | map(attribute='name') | list | tojson }};
+const labelColors = {{ user_stats | map(attribute='user') | map(attribute='avatar_bg') | list | tojson }};
+
+/* ── Defaults globales Chart.js ─────────────────────────── */
+Chart.defaults.color = '#7080b8';
+Chart.defaults.borderColor = 'rgba(112,128,184,0.07)';
+Chart.defaults.font.family = "'Exo 2', sans-serif";
+Chart.defaults.font.size = 12;
+
+const pluginDefaults = {
+  legend: { labels: { color: '#7080b8', padding: 16, font: { size: 11 } } },
+  tooltip: {
+    backgroundColor: 'rgba(6,6,15,.92)',
+    borderColor: 'rgba(112,128,184,.2)',
+    borderWidth: 1,
+    titleColor: '#fff',
+    bodyColor: '#a0b0d8',
+    padding: 10,
+    cornerRadius: 8,
+  }
+};
+
+/* ══════════════════════════════════════════════════════════
+   1. TIMELINE — evolución de puntos
+══════════════════════════════════════════════════════════ */
+{% if timeline_labels %}
+(function() {
+  const ctx = document.getElementById('timelineChart');
+  if (!ctx) return;
+  const datasets = users.map((uid, idx) => ({
+    label: userNames[idx],
+    data: timelineData[uid] || [],
+    borderColor: userColors[idx] || USER_COLORS[idx % USER_COLORS.length],
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 3,
+    pointHoverRadius: 6,
+    pointBackgroundColor: userColors[idx] || USER_COLORS[idx % USER_COLORS.length],
+    tension: 0.35,
+  }));
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels: timelineLabels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { ...pluginDefaults, tooltip: { ...pluginDefaults.tooltip, mode: 'index' } },
+      scales: {
+        x: { grid: { color: 'rgba(112,128,184,.06)' }, ticks: { maxRotation: 45, font: { size: 10 } } },
+        y: { grid: { color: 'rgba(112,128,184,.06)' }, ticks: { precision: 0 }, beginAtZero: true },
+      }
+    }
+  });
+})();
+{% endif %}
+
+/* ══════════════════════════════════════════════════════════
+   2. POINTS BREAKDOWN — barras horizontales apiladas
+══════════════════════════════════════════════════════════ */
+(function() {
+  const ctx = document.getElementById('pointsChart');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labelNames,
+      datasets: [
+        { label: 'Partidos',   data: matchPts, backgroundColor: 'rgba(0,187,85,.75)',  borderRadius: 3 },
+        { label: 'Bonus',      data: bonusPts, backgroundColor: 'rgba(240,160,0,.75)', borderRadius: 3 },
+        { label: 'Peor sel.',  data: worstPts, backgroundColor: 'rgba(238,0,85,.65)',  borderRadius: 3 },
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { ...pluginDefaults, legend: { ...pluginDefaults.legend, position: 'top' } },
+      scales: {
+        x: { stacked: true, grid: { color: 'rgba(112,128,184,.06)' }, ticks: { precision: 0 } },
+        y: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+      }
+    }
+  });
+})();
+
+/* ══════════════════════════════════════════════════════════
+   3. COINS — ganadas vs gastadas
+══════════════════════════════════════════════════════════ */
+(function() {
+  const ctx = document.getElementById('coinsChart');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labelNames,
+      datasets: [
+        { label: 'Ganadas', data: coinsEarned, backgroundColor: 'rgba(0,187,85,.7)',   borderRadius: 3 },
+        { label: 'Gastadas', data: coinsSpent, backgroundColor: 'rgba(238,0,85,.6)',   borderRadius: 3 },
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { ...pluginDefaults, legend: { ...pluginDefaults.legend, position: 'top' } },
+      scales: {
+        x: { grid: { color: 'rgba(112,128,184,.06)' }, ticks: { precision: 0 } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}
