@@ -61,25 +61,7 @@
   <!-- BONUS PREDICTIONS -->
   <div class="settings-card">
     <div class="settings-title pixel-text">PREDICCIONES BONUS</div>
-    {% if settings and settings.bonus_locked %}
-    <div class="alert-pixel alert-warning">🔒 Las predicciones bonus están bloqueadas.</div>
-    {% if bonus %}
-    <div class="bonus-summary">
-      <div class="bonus-row-sm"><span class="bonus-badge badge-pink">+10</span>
-        {% if bonus.champion %}{{ bonus.champion.flag_emoji }} {{ bonus.champion.name }}{% else %}—{% endif %}
-        {% if bonus.champion_points %}<span class="pts-pill">✓ +{{ bonus.champion_points }}</span>{% endif %}
-      </div>
-      <div class="bonus-row-sm"><span class="bonus-badge badge-green">+5</span>
-        {% if bonus.runner_up %}{{ bonus.runner_up.flag_emoji }} {{ bonus.runner_up.name }}{% else %}—{% endif %}
-        {% if bonus.runner_up_points %}<span class="pts-pill">✓ +{{ bonus.runner_up_points }}</span>{% endif %}
-      </div>
-      <div class="bonus-row-sm"><span class="bonus-badge badge-orange">+5</span>
-        {{ bonus.top_scorer_name or '—' }}
-        {% if bonus.scorer_points %}<span class="pts-pill">✓ +{{ bonus.scorer_points }}</span>{% endif %}
-      </div>
-    </div>
-    {% endif %}
-    {% else %}
+    {% if current_user.is_admin %}
     <form method="POST">
       <input type="hidden" name="action" value="bonus">
       <div class="bonus-row">
@@ -115,6 +97,26 @@
       </div>
       <button type="submit" class="btn-pixel">GUARDAR BONUS</button>
     </form>
+    {% else %}
+    <div class="alert-pixel alert-warning" style="margin-bottom:12px">🔒 El mundial ya ha empezado. Las predicciones bonus están bloqueadas.</div>
+    {% if bonus %}
+    <div class="bonus-summary">
+      <div class="bonus-row-sm"><span class="bonus-badge badge-pink">+10</span>
+        {% if bonus.champion %}{{ bonus.champion.flag_emoji }} {{ bonus.champion.name }}{% else %}—{% endif %}
+        {% if bonus.champion_points %}<span class="pts-pill">✓ +{{ bonus.champion_points }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-green">+5</span>
+        {% if bonus.runner_up %}{{ bonus.runner_up.flag_emoji }} {{ bonus.runner_up.name }}{% else %}—{% endif %}
+        {% if bonus.runner_up_points %}<span class="pts-pill">✓ +{{ bonus.runner_up_points }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-orange">+5</span>
+        {{ bonus.top_scorer_name or '—' }}
+        {% if bonus.scorer_points %}<span class="pts-pill">✓ +{{ bonus.scorer_points }}</span>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div style="color:var(--muted);font-size:.82rem">No has registrado predicciones bonus.</div>
+    {% endif %}
     {% endif %}
   </div>
 
@@ -159,25 +161,7 @@
     <p style="font-size:.78rem;color:var(--muted);margin-bottom:14px">
       +5 pts equipo más goleador · +3 pts más tarjetas · +5 pts caballo negro
     </p>
-    {% if settings and settings.bonus_locked %}
-    <div class="alert-pixel alert-warning">🔒 Bonus bloqueados.</div>
-    {% if extra_bonus %}
-    <div class="bonus-summary">
-      <div class="bonus-row-sm"><span class="bonus-badge badge-green">+5</span>
-        ⚽ {% if extra_bonus.most_goals_team %}{{ flag(extra_bonus.most_goals_team) }} {{ extra_bonus.most_goals_team.name }}{% else %}—{% endif %}
-        {% if extra_bonus.most_goals_pts %}<span class="pts-pill">✓ +{{ extra_bonus.most_goals_pts }}</span>{% endif %}
-      </div>
-      <div class="bonus-row-sm"><span class="bonus-badge badge-orange">+3</span>
-        🟨 {% if extra_bonus.most_cards_team %}{{ flag(extra_bonus.most_cards_team) }} {{ extra_bonus.most_cards_team.name }}{% else %}—{% endif %}
-        {% if extra_bonus.most_cards_pts %}<span class="pts-pill">✓ +{{ extra_bonus.most_cards_pts }}</span>{% endif %}
-      </div>
-      <div class="bonus-row-sm"><span class="bonus-badge badge-pink">+5</span>
-        🐴 {% if extra_bonus.dark_horse_team %}{{ flag(extra_bonus.dark_horse_team) }} {{ extra_bonus.dark_horse_team.name }}{% else %}—{% endif %}
-        {% if extra_bonus.dark_horse_pts %}<span class="pts-pill">✓ +{{ extra_bonus.dark_horse_pts }}</span>{% endif %}
-      </div>
-    </div>
-    {% endif %}
-    {% else %}
+    {% if current_user.is_admin %}
     <form method="POST" action="{{ url_for('save_extra_bonus') }}">
       <div class="bonus-row">
         <div class="bonus-badge badge-green">+5</div>
@@ -211,6 +195,26 @@
       </div>
       <button type="submit" class="btn-pixel">GUARDAR BONUS EXTRA</button>
     </form>
+    {% else %}
+    <div class="alert-pixel alert-warning" style="margin-bottom:12px">🔒 Bloqueado. El mundial ya ha empezado.</div>
+    {% if extra_bonus %}
+    <div class="bonus-summary">
+      <div class="bonus-row-sm"><span class="bonus-badge badge-green">+5</span>
+        ⚽ {% if extra_bonus.most_goals_team %}{{ flag(extra_bonus.most_goals_team) }} {{ extra_bonus.most_goals_team.name }}{% else %}—{% endif %}
+        {% if extra_bonus.most_goals_pts %}<span class="pts-pill">✓ +{{ extra_bonus.most_goals_pts }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-orange">+3</span>
+        🟨 {% if extra_bonus.most_cards_team %}{{ flag(extra_bonus.most_cards_team) }} {{ extra_bonus.most_cards_team.name }}{% else %}—{% endif %}
+        {% if extra_bonus.most_cards_pts %}<span class="pts-pill">✓ +{{ extra_bonus.most_cards_pts }}</span>{% endif %}
+      </div>
+      <div class="bonus-row-sm"><span class="bonus-badge badge-pink">+5</span>
+        🐴 {% if extra_bonus.dark_horse_team %}{{ flag(extra_bonus.dark_horse_team) }} {{ extra_bonus.dark_horse_team.name }}{% else %}—{% endif %}
+        {% if extra_bonus.dark_horse_pts %}<span class="pts-pill">✓ +{{ extra_bonus.dark_horse_pts }}</span>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div style="color:var(--muted);font-size:.82rem">No has registrado bonus extra.</div>
+    {% endif %}
     {% endif %}
   </div>
 

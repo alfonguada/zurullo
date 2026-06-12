@@ -66,59 +66,99 @@
     </table>
   </div>
 
-  <!-- BONUS PREDICTIONS TABLE -->
+  <!-- BONUS PREDICTIONS -->
   {% set shown_bonus = rows | selectattr('user.bonus') | list %}
   {% if shown_bonus %}
   <div class="bonus-table-section">
     <div class="section-header">
       <span class="pixel-text section-title">PREDICCIONES BONUS</span>
     </div>
-    <div class="lb-table-wrap">
-      <table class="lb-table">
-        <thead>
-          <tr>
-            <th>JUGADOR</th>
-            <th class="text-center">🏆 CAMPEÓN (+10)</th>
-            <th class="text-center">🥈 SUBCAMPEÓN (+5)</th>
-            <th class="text-center">👟 GOLEADOR (+5)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in rows %}
-          {% if row.user.bonus %}
-          <tr class="{% if row.user.id == current_user.id %}lb-tr-me{% endif %}">
-            <td>
-              <div class="lb-player">
-                <span class="avatar-xs" style="background:{{ row.user.avatar_bg }}">{{ row.user.avatar_emoji }}</span>
-                {{ row.user.name }}
-              </div>
-            </td>
-            <td class="text-center">
-              {% if row.user.bonus.champion %}
-              <span {% if settings and settings.champion_id == row.user.bonus.champion_id %}class="correct-pick"{% endif %}>
-                {{ flag(row.user.bonus.champion) }} {{ row.user.bonus.champion.name }}
-              </span>
-              {% else %}—{% endif %}
-            </td>
-            <td class="text-center">
-              {% if row.user.bonus.runner_up %}
-              <span {% if settings and settings.runner_up_id == row.user.bonus.runner_up_id %}class="correct-pick"{% endif %}>
-                {{ flag(row.user.bonus.runner_up) }} {{ row.user.bonus.runner_up.name }}
-              </span>
-              {% else %}—{% endif %}
-            </td>
-            <td class="text-center">
-              {% if row.user.bonus.top_scorer_name %}
-              <span {% if settings and settings.top_scorer_name and row.user.bonus.top_scorer_name.lower().strip() == settings.top_scorer_name.lower().strip() %}class="correct-pick"{% endif %}>
-                {{ row.user.bonus.top_scorer_name }}
-              </span>
-              {% else %}—{% endif %}
-            </td>
-          </tr>
-          {% endif %}
-          {% endfor %}
-        </tbody>
-      </table>
+
+    <!-- MÓVIL: cards apiladas -->
+    <div class="bonus-table-mobile">
+      {% for row in rows %}{% if row.user.bonus %}
+      <div class="bonus-card-mobile {% if row.user.id == current_user.id %}bonus-card-me{% endif %}">
+        <div class="bm-header">
+          <span class="av av-xs" style="background:{{ row.user.avatar_bg }}">{{ row.user.avatar_emoji }}</span>
+          <span class="bm-name">{{ row.user.name }}</span>
+        </div>
+        <div class="bm-rows">
+          <div class="bm-row">
+            <span class="bm-label">🏆 CAMP.</span>
+            {% if row.user.bonus.champion %}
+            <span {% if settings and settings.champion_id == row.user.bonus.champion_id %}class="correct-pick"{% endif %}>
+              {{ flag(row.user.bonus.champion) }} {{ row.user.bonus.champion.name }}
+            </span>
+            {% else %}<span style="color:var(--muted)">—</span>{% endif %}
+          </div>
+          <div class="bm-row">
+            <span class="bm-label">🥈 SUB.</span>
+            {% if row.user.bonus.runner_up %}
+            <span {% if settings and settings.runner_up_id == row.user.bonus.runner_up_id %}class="correct-pick"{% endif %}>
+              {{ flag(row.user.bonus.runner_up) }} {{ row.user.bonus.runner_up.name }}
+            </span>
+            {% else %}<span style="color:var(--muted)">—</span>{% endif %}
+          </div>
+          <div class="bm-row">
+            <span class="bm-label">👟 GOL.</span>
+            {% if row.user.bonus.top_scorer_name %}
+            <span {% if settings and settings.top_scorer_name and row.user.bonus.top_scorer_name.lower().strip() == settings.top_scorer_name.lower().strip() %}class="correct-pick"{% endif %}>
+              {{ row.user.bonus.top_scorer_name }}
+            </span>
+            {% else %}<span style="color:var(--muted)">—</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}{% endfor %}
+    </div>
+
+    <!-- DESKTOP: tabla -->
+    <div class="bonus-table-desktop">
+      <div class="lb-table-wrap">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th>JUGADOR</th>
+              <th class="text-center">🏆 CAMPEÓN (+10)</th>
+              <th class="text-center">🥈 SUBCAMPEÓN (+5)</th>
+              <th class="text-center">👟 GOLEADOR (+5)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}{% if row.user.bonus %}
+            <tr class="{% if row.user.id == current_user.id %}lb-tr-me{% endif %}">
+              <td>
+                <div class="lb-player">
+                  <span class="av av-xs" style="background:{{ row.user.avatar_bg }}">{{ row.user.avatar_emoji }}</span>
+                  {{ row.user.name }}
+                </div>
+              </td>
+              <td class="text-center">
+                {% if row.user.bonus.champion %}
+                <span {% if settings and settings.champion_id == row.user.bonus.champion_id %}class="correct-pick"{% endif %}>
+                  {{ flag(row.user.bonus.champion) }} {{ row.user.bonus.champion.name }}
+                </span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-center">
+                {% if row.user.bonus.runner_up %}
+                <span {% if settings and settings.runner_up_id == row.user.bonus.runner_up_id %}class="correct-pick"{% endif %}>
+                  {{ flag(row.user.bonus.runner_up) }} {{ row.user.bonus.runner_up.name }}
+                </span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-center">
+                {% if row.user.bonus.top_scorer_name %}
+                <span {% if settings and settings.top_scorer_name and row.user.bonus.top_scorer_name.lower().strip() == settings.top_scorer_name.lower().strip() %}class="correct-pick"{% endif %}>
+                  {{ row.user.bonus.top_scorer_name }}
+                </span>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endif %}{% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   {% endif %}

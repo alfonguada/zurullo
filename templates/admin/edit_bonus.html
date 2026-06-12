@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Editar Bonus — {{ user.name }}{% endblock %}
+{% block content %}
+<div class="page-container" style="max-width:620px">
+
+  <div class="page-header">
+    <div class="pixel-text glow-pink" style="font-size:.8rem">✏️ EDITAR BONUS</div>
+    <a href="{{ url_for('admin_users') }}" class="btn-pixel btn-sm btn-secondary">← VOLVER</a>
+  </div>
+
+  <!-- User info -->
+  <div class="settings-card" style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+    <div class="av av-lg" style="background:{{ user.avatar_bg }}">{{ user.avatar_emoji }}</div>
+    <div>
+      <div style="font-weight:900;font-size:1rem">{{ user.name }}</div>
+      <div style="font-size:.75rem;color:var(--muted)">{{ user.email }}</div>
+    </div>
+  </div>
+
+  <!-- BONUS PRINCIPALES -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">PREDICCIONES BONUS</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="bonus">
+      <div class="bonus-row">
+        <div class="bonus-badge badge-pink">+10</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🏆 CAMPEÓN DEL MUNDO</label>
+          <select name="champion_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}" {% if bonus and bonus.champion_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-green">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🥈 SUBCAMPEÓN</label>
+          <select name="runner_up_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}" {% if bonus and bonus.runner_up_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-orange">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">👟 MÁXIMO GOLEADOR</label>
+          <input type="text" name="top_scorer_name" class="field-input"
+            value="{{ bonus.top_scorer_name if bonus else '' }}" placeholder="Nombre del jugador">
+        </div>
+      </div>
+      <button type="submit" class="btn-pixel">GUARDAR BONUS</button>
+    </form>
+  </div>
+
+  <!-- BONUS EXTRA -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">🎲 BONUS EXTRA</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="extra_bonus">
+      <div class="bonus-row">
+        <div class="bonus-badge badge-green">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">⚽ EQUIPO MÁS GOLEADOR</label>
+          <select name="most_goals_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}<option value="{{ t.id }}" {% if extra_bonus and extra_bonus.most_goals_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-orange">+3</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🟨 EQUIPO MÁS TARJETAS</label>
+          <select name="most_cards_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}<option value="{{ t.id }}" {% if extra_bonus and extra_bonus.most_cards_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="bonus-row">
+        <div class="bonus-badge badge-pink">+5</div>
+        <div class="field-group" style="flex:1">
+          <label class="field-label">🐴 CABALLO NEGRO</label>
+          <select name="dark_horse_id" class="field-input">
+            <option value="">— Sin seleccionar —</option>
+            {% for t in teams %}<option value="{{ t.id }}" {% if extra_bonus and extra_bonus.dark_horse_id == t.id %}selected{% endif %}>{{ t.flag_emoji }} {{ t.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn-pixel">GUARDAR BONUS EXTRA</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

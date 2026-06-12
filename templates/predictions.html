@@ -80,10 +80,11 @@
               {% endif %}
               <button class="btn-see-preds" onclick="loadPreds({{ match.id }}, this)">VER TODAS</button>
             {% elif match.is_locked %}
-              <div class="locked-msg">🔒 BLOQUEADO</div>
+              <div class="locked-msg">🔒 EN JUEGO</div>
               {% if pred %}
               <div class="pred-pending">Tu porra: {{ pred.goals1 }}-{{ pred.goals2 }}</div>
               {% endif %}
+              <button class="btn-see-preds" onclick="loadPreds({{ match.id }}, this)">VER PORRAS</button>
             {% else %}
               <!-- Prediction input -->
               <div class="pred-input-group" data-match="{{ match.id }}">
@@ -154,16 +155,19 @@ function loadPreds(matchId, btn) {
   if (panel.classList.contains('hidden')) {
     panel.classList.remove('hidden');
     btn.textContent = 'CERRAR';
-    fetch('/match/' + matchId + '/predictions').then(r => r.json()).then(data => {
-      if (data.error) { panel.innerHTML = '<div class="preds-loading">' + data.error + '</div>'; return; }
+    fetch('/match/' + matchId + '/predictions').then(r => r.json()).then(resp => {
+      if (resp.error) { panel.innerHTML = '<div class="preds-loading">' + resp.error + '</div>'; return; }
+      const data = resp.predictions || [];
+      const scored = resp.result_entered === true;
+      if (!data.length) { panel.innerHTML = '<div class="preds-loading">Sin porras registradas</div>'; return; }
       let html = '<div class="preds-grid">';
       data.forEach(p => {
-        const cls = p.pts >= 3 ? 'pred-exact' : (p.pts >= 1 ? 'pred-tend' : 'pred-miss');
+        const cls = scored ? (p.pts >= 3 ? 'pred-exact' : (p.pts >= 1 ? 'pred-tend' : 'pred-miss')) : '';
         html += `<div class="pred-row ${cls}">
           <span class="avatar-xs" style="background:${p.bg}">${p.emoji}</span>
           <span>${p.name}</span>
           <span class="pixel-text">${p.g1}-${p.g2}</span>
-          <span class="pts-badge">+${p.pts}</span>
+          ${scored ? `<span class="pts-badge">+${p.pts}</span>` : ''}
         </div>`;
       });
       html += '</div>';
@@ -171,8 +175,10 @@ function loadPreds(matchId, btn) {
     });
   } else {
     panel.classList.add('hidden');
-    btn.textContent = 'VER TODAS';
+    btn.textContent = btn.dataset.orig || 'VER TODAS';
   }
 }
+// Guardar texto original del botón al cargar
+document.querySelectorAll('.btn-see-preds').forEach(b => b.dataset.orig = b.textContent);
 </script>
 {% endblock %}

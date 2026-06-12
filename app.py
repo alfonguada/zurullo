@@ -721,7 +721,7 @@ def match_predictions(match_id):
             'pts': p.points_earned or 0
         })
     data.sort(key=lambda x: x['pts'], reverse=True)
-    return jsonify(data)
+    return jsonify({'result_entered': match.result_entered, 'predictions': data})
 
 
 @app.route('/activity')
@@ -752,6 +752,9 @@ def activity():
 @app.route('/extra-bonus', methods=['POST'])
 @login_required
 def save_extra_bonus():
+    if not current_user.is_admin:
+        flash('Las predicciones bonus están bloqueadas.', 'error')
+        return redirect(url_for('profile'))
     settings = TournamentSettings.query.first()
     if settings and settings.bonus_locked:
         return jsonify({'error': 'Bonus bloqueados.'}), 400
@@ -768,6 +771,44 @@ def save_extra_bonus():
     db.session.commit()
     flash('¡Bonus extra guardado!', 'success')
     return redirect(url_for('profile'))
+
+
+@app.route('/admin/edit-bonus/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_edit_bonus(user_id):
+    user = User.query.get_or_404(user_id)
+    teams = Team.query.order_by(Team.name).all()
+    bonus = BonusPrediction.query.filter_by(user_id=user_id).first()
+    extra_bonus = ExtraBonusPrediction.query.filter_by(user_id=user_id).first()
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'bonus':
+            if not bonus:
+                bonus = BonusPrediction(user_id=user_id)
+                db.session.add(bonus)
+            champ = request.form.get('champion_id')
+            sub = request.form.get('runner_up_id')
+            bonus.champion_id = int(champ) if champ else None
+            bonus.runner_up_id = int(sub) if sub else None
+            bonus.top_scorer_name = request.form.get('top_scorer_name', '').strip()
+            db.session.commit()
+            flash(f'Bonus de {user.name} actualizados.', 'success')
+        elif action == 'extra_bonus':
+            if not extra_bonus:
+                extra_bonus = ExtraBonusPrediction(user_id=user_id)
+                db.session.add(extra_bonus)
+            mg = request.form.get('most_goals_id')
+            mc = request.form.get('most_cards_id')
+            dh = request.form.get('dark_horse_id')
+            extra_bonus.most_goals_id = int(mg) if mg else None
+            extra_bonus.most_cards_id = int(mc) if mc else None
+            extra_bonus.dark_horse_id = int(dh) if dh else None
+            db.session.commit()
+            flash(f'Bonus extra de {user.name} actualizados.', 'success')
+        return redirect(url_for('admin_edit_bonus', user_id=user_id))
+    return render_template('admin/edit_bonus.html', user=user, teams=teams,
+                           bonus=bonus, extra_bonus=extra_bonus)
 
 
 @app.route('/admin/album')
