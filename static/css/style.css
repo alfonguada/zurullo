@@ -1648,8 +1648,8 @@ body {
 /* ── More menu bottom sheet ── */
 .more-menu {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 299;
-  background: rgba(8,8,20,.98);
-  border-top: 1px solid var(--border);
+  background: #06060f;
+  border-top: 1px solid var(--nav-border);
   border-radius: 20px 20px 0 0;
   padding: 8px 16px 16px;
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
@@ -1669,25 +1669,26 @@ body {
 .more-item {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 12px 8px; border-radius: var(--radius-sm);
-  background: var(--surface); border: 1px solid var(--border);
-  text-decoration: none; color: var(--text);
+  background: rgba(255,255,255,.05); border: 1px solid var(--nav-border);
+  text-decoration: none; color: #c8d0ee;
   transition: all .12s; touch-action: manipulation;
 }
-.more-item:active { transform: scale(.95); background: var(--surface2); }
-.more-item.more-active { border-color: var(--primary); background: rgba(0,187,85,.06); }
+.more-item:active { transform: scale(.95); background: rgba(255,255,255,.09); }
+.more-item.more-active { border-color: var(--primary); background: rgba(0,187,85,.12); }
 .more-item.more-active .more-item-lbl { color: var(--primary); }
-.more-item-admin { border-color: rgba(238,0,85,.3); }
-.more-item-admin.more-active, .more-item-admin:active { border-color: var(--secondary); }
+.more-item-admin { border-color: rgba(238,0,85,.25); }
+.more-item-admin.more-active { border-color: var(--secondary); background: rgba(238,0,85,.12); }
 .more-item-icon { font-size: 1.5rem; line-height: 1; }
-.more-item-lbl  { font-size: .68rem; font-weight: 700; color: var(--text2); }
+.more-item-lbl  { font-size: .68rem; font-weight: 700; color: #8090c0; }
+.more-item.more-active .more-item-lbl { color: var(--primary); }
 
 .more-logout {
   display: block; text-align: center; padding: 12px;
-  color: var(--muted); font-size: .82rem; font-weight: 600;
-  text-decoration: none; border: 1px solid var(--border);
+  color: #5060a0; font-size: .82rem; font-weight: 600;
+  text-decoration: none; border: 1px solid var(--nav-border);
   border-radius: var(--radius-sm); transition: all .12s;
 }
-.more-logout:active { background: var(--surface2); color: var(--text); }
+.more-logout:active { background: rgba(255,255,255,.06); color: #c8d0ee; }
 
 /* Ocultar more-menu en desktop */
 @media (min-width: 768px) {
