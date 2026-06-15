@@ -83,6 +83,23 @@
     </a>
   </div>
 
+  <!-- SINCRONIZAR CÓRNERS -->
+  <div class="settings-card" style="margin-top:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="pixel-text" style="font-size:.45rem;color:var(--muted);margin-bottom:6px">🚩 CÓRNERS — SYNC ESPN</div>
+        <p style="font-size:.82rem;color:var(--text2)">
+          Busca automáticamente el total de córners en ESPN para los partidos jugados en los últimos 7 días que aún no los tienen,
+          y liquida las apuestas de córners pendientes.
+        </p>
+      </div>
+      <form action="{{ url_for('admin_sync_corners') }}" method="POST"
+            onsubmit="return confirm('¿Sincronizar córners desde ESPN?')">
+        <button type="submit" class="btn-pixel btn-sm" style="background:#7090c8">🚩 SYNC CÓRNERS</button>
+      </form>
+    </div>
+  </div>
+
   <!-- SOBRES DIARIOS -->
   <div class="settings-card" style="margin-top:20px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">

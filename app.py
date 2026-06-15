@@ -1171,10 +1171,49 @@ def profile():
                            bonus=bonus, extra_bonus=extra_bonus, worst=worst)
 
 
+# ─── ESPN CORNERS HELPERS ─────────────────────────────────────────────────────
+
+def _espn_corners_from_comp(comp):
+    """Extrae córners totales del objeto competition del scoreboard de ESPN."""
+    total = 0
+    found = False
+    for competitor in comp.get('competitors', []):
+        for stat in competitor.get('statistics', []):
+            if stat.get('name') == 'cornerKicks':
+                try:
+                    total += int(float(stat.get('value', stat.get('displayValue', 0))))
+                    found = True
+                except (ValueError, TypeError):
+                    pass
+    return total if found else None
+
+
+def _espn_corners_from_summary(event_id, req_lib):
+    """Llama al endpoint /summary de ESPN para obtener córners cuando el scoreboard no los da."""
+    url = (f'https://site.api.espn.com/apis/site/v2/sports/soccer'
+           f'/fifa.world/summary?event={event_id}')
+    try:
+        r = req_lib.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        data = r.json()
+        total = 0
+        found = False
+        for team in data.get('boxscore', {}).get('teams', []):
+            for stat in team.get('statistics', []):
+                if stat.get('name') == 'cornerKicks':
+                    try:
+                        total += int(float(stat.get('value', stat.get('displayValue', 0))))
+                        found = True
+                    except (ValueError, TypeError):
+                        pass
+        return total if found else None
+    except Exception:
+        return None
+
+
 @app.route('/api/sync')
 def api_sync():
     """
-    Actualiza resultados desde ESPN y recalcula puntos.
+    Actualiza resultados y córners desde ESPN y recalcula puntos.
     Llamar con ?token=TU_TOKEN desde una tarea programada o cron-job.org.
     """
     SYNC_TOKEN = os.environ.get('SYNC_TOKEN', 'zurullo-sync-2026')
@@ -1185,6 +1224,7 @@ def api_sync():
         import requests as req
         now = datetime.utcnow()
         total_updated = 0
+        corners_updated = 0
 
         for delta in [-1, 0, 1]:  # ayer, hoy, mañana
             day = now + timedelta(days=delta)
@@ -1213,6 +1253,11 @@ def api_sync():
                     score1 = int(home.get('score', ''))
                     score2 = int(away.get('score', ''))
 
+                    # Intentar extraer córners (scoreboard primero, luego summary)
+                    corners = _espn_corners_from_comp(comp)
+                    if corners is None:
+                        corners = _espn_corners_from_summary(ev.get('id', ''), req)
+
                     # Buscar partido en BD por equipos y fecha
                     from fetch_schedule import TEAM_MAP
                     n1 = TEAM_MAP.get(home['team']['displayName'], home['team']['displayName'])
@@ -1236,27 +1281,115 @@ def api_sync():
                     ).first()
 
                     if match and match.goals1 is None:
+                        # Partido nuevo con resultado
                         match.goals1 = score1
                         match.goals2 = score2
                         match.is_locked = True
+                        if corners is not None:
+                            match.total_corners = corners
                         recalc_match(match)
                         total_updated += 1
+                    elif match and match.result_entered and match.total_corners is None and corners is not None:
+                        # Partido ya tiene resultado pero le faltaban los córners
+                        match.total_corners = corners
+                        settle_match_bets(match)
+                        settle_match_parlays(match)
+                        corners_updated += 1
 
                 except Exception:
                     continue
 
-        if total_updated:
+        if total_updated or corners_updated:
             db.session.commit()
-            recalc_worst_teams()
-            for u in User.query.all():
-                grant_milestone_packs(u)
-            db.session.commit()
+            if total_updated:
+                recalc_worst_teams()
+                for u in User.query.all():
+                    grant_milestone_packs(u)
+                db.session.commit()
 
         return jsonify({'ok': True, 'updated': total_updated,
+                        'corners_updated': corners_updated,
                         'ts': now.strftime('%Y-%m-%d %H:%M UTC')})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/sync-corners', methods=['POST'])
+@login_required
+@admin_required
+def admin_sync_corners():
+    """Busca córners en ESPN para todos los partidos completados que aún no los tienen."""
+    try:
+        import requests as req
+    except ImportError:
+        flash('Librería requests no disponible.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    updated = 0
+    errors = 0
+    # Partidos con resultado pero sin córners, jugados en los últimos 7 días
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    matches_no_corners = Match.query.filter(
+        Match.goals1.isnot(None),
+        Match.total_corners.is_(None),
+        Match.match_date >= cutoff
+    ).all()
+
+    for match in matches_no_corners:
+        # Buscar el evento en ESPN por fecha
+        day = match.match_date
+        url = (f'https://site.api.espn.com/apis/site/v2/sports/soccer'
+               f'/fifa.world/scoreboard?dates={day.strftime("%Y%m%d")}&limit=30')
+        try:
+            r = req.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            events = r.json().get('events', [])
+        except Exception:
+            errors += 1
+            continue
+
+        found = False
+        for ev in events:
+            try:
+                comp = ev['competitions'][0]
+                competitors = comp.get('competitors', [])
+                if len(competitors) < 2:
+                    continue
+                home = next((c for c in competitors if c.get('homeAway') == 'home'), competitors[0])
+                away = next((c for c in competitors if c.get('homeAway') == 'away'), competitors[1])
+
+                from fetch_schedule import TEAM_MAP
+                n1 = TEAM_MAP.get(home['team']['displayName'], home['team']['displayName'])
+                n2 = TEAM_MAP.get(away['team']['displayName'], away['team']['displayName'])
+                t1 = Team.query.filter_by(name=n1).first()
+                t2 = Team.query.filter_by(name=n2).first()
+                if not t1 or not t2:
+                    continue
+                if t1.id != match.team1_id or t2.id != match.team2_id:
+                    continue
+
+                corners = _espn_corners_from_comp(comp)
+                if corners is None:
+                    corners = _espn_corners_from_summary(ev.get('id', ''), req)
+                if corners is not None:
+                    match.total_corners = corners
+                    settle_match_bets(match)
+                    settle_match_parlays(match)
+                    updated += 1
+                    found = True
+                    break
+            except Exception:
+                continue
+
+        if not found:
+            errors += 1
+
+    if updated:
+        db.session.commit()
+
+    flash(f'Córners actualizados: {updated} partido(s). '
+          f'Sin datos: {errors} partido(s).', 'success' if updated else 'error')
+    return redirect(url_for('admin_dashboard'))
 
 
 @app.route('/match/<int:match_id>/predictions')

@@ -15,6 +15,11 @@
         <span class="match-date">{{ match.match_date.strftime('%d/%m/%Y %H:%M') }}</span>
         {% if match.double_points %}<span class="double-tag">×2 🇪🇸</span>{% endif %}
         {% if match.result_entered %}<span class="done-tag">✓ RESULTADO</span>{% endif %}
+        {% if match.result_entered and match.total_corners is not none %}
+          <span class="done-tag" style="background:var(--accent);color:#000">🚩 {{ match.total_corners }} CK</span>
+        {% elif match.result_entered %}
+          <span class="done-tag" style="background:#555;color:#aaa">🚩 sin córners</span>
+        {% endif %}
       </div>
       <div class="rec-body">
         <div class="rec-teams">
