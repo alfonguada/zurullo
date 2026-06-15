@@ -115,5 +115,38 @@
       <button type="submit" class="btn-pixel btn-secondary">🔄 RECALCULAR TODO</button>
     </form>
   </div>
+
+  <!-- SETTLE BETS -->
+  <div class="settings-card">
+    <div class="settings-title pixel-text">💰 LIQUIDAR APUESTAS PENDIENTES</div>
+    <p style="color:var(--muted);font-size:.85rem">
+      Liquida manualmente todas las apuestas simples y combinadas de partidos con resultado introducido.
+      Úsalo si las monedas de apuestas no se repartieron correctamente.
+    </p>
+    <form method="POST" onsubmit="return confirm('¿Liquidar todas las apuestas pendientes?')">
+      <input type="hidden" name="action" value="settle_bets">
+      <button type="submit" class="btn-pixel" style="background:var(--accent)">💰 LIQUIDAR APUESTAS</button>
+    </form>
+  </div>
+
+  <!-- RETROACTIVE RECALC + NOTIFY -->
+  <div class="settings-card" style="border-color:var(--primary)">
+    <div class="settings-title pixel-text" style="color:var(--primary)">⚡ RECÁLCULO TOTAL + NOTIFICAR JUGADORES</div>
+    <p style="color:var(--muted);font-size:.85rem">
+      Recalcula <b>todo</b>: porras, peores selecciones (con monedas por goles), apuestas pendientes y sobres por hitos.
+      Luego muestra a cada jugador el mensaje que escribas hasta que lo lean y pulsen "He leído este mensaje".
+      <br><b>Úsalo para compensar los fallos que ha habido durante los partidos.</b>
+    </p>
+    <form method="POST" onsubmit="return confirm('¿Recalcular todo y notificar a los jugadores?')">
+      <input type="hidden" name="action" value="recalc_and_notify">
+      <div class="field-group">
+        <label class="field-label">MENSAJE PARA LOS JUGADORES (aparecerá en pantalla al entrar)</label>
+        <textarea name="notice_text" class="field-input" rows="4"
+                  placeholder="Ej: Hemos corregido los puntos y monedas de los partidos anteriores. Revisa tu saldo actualizado. ¡Gracias por la paciencia!"
+                  style="resize:vertical;font-family:inherit"></textarea>
+      </div>
+      <button type="submit" class="btn-pixel btn-pink">⚡ RECALCULAR TODO Y NOTIFICAR</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

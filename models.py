@@ -24,10 +24,11 @@ class User(UserMixin, db.Model):
     onboarding_done = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    coins_spent  = db.Column(db.Integer, default=0)
-    bet_winnings = db.Column(db.Integer, default=0)  # monedas ganadas en apuestas
-    gift_coins   = db.Column(db.Integer, default=0)  # monedas regaladas por el admin
-    gift_alert   = db.Column(db.Integer, default=0)  # regalo pendiente de avisar (una vez)
+    coins_spent    = db.Column(db.Integer, default=0)
+    bet_winnings   = db.Column(db.Integer, default=0)  # monedas ganadas en apuestas
+    gift_coins     = db.Column(db.Integer, default=0)  # monedas regaladas por el admin
+    gift_alert     = db.Column(db.Integer, default=0)  # regalo pendiente de avisar (una vez)
+    pending_notice = db.Column(db.Text, default=None)  # aviso admin pendiente de leer
 
     predictions  = db.relationship('Prediction', back_populates='user', lazy='dynamic')
     bonus        = db.relationship('BonusPrediction', back_populates='user', uselist=False)
@@ -68,6 +69,15 @@ class User(UserMixin, db.Model):
         return self.worst_team.points_earned if self.worst_team else 0
 
     @property
+    def worst_coins(self):
+        """50 monedas por cada gol a favor de tu peor selección, 25 por cada en contra."""
+        if not self.worst_team:
+            return 0
+        gf = self.worst_team.goals_for or 0
+        ga = self.worst_team.goals_against or 0
+        return gf * 50 + ga * 25
+
+    @property
     def total_points(self):
         return self.match_points + self.bonus_points + self.worst_points
 
@@ -82,7 +92,7 @@ class User(UserMixin, db.Model):
 
     @property
     def coins(self):
-        return max(0, self.coins_earned + (self.bet_winnings or 0)
+        return max(0, self.coins_earned + self.worst_coins + (self.bet_winnings or 0)
                    + (self.gift_coins or 0) - (self.coins_spent or 0))
 
     @property
@@ -202,6 +212,8 @@ class WorstTeamAssignment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
     points_earned = db.Column(db.Integer, default=0)
+    goals_for = db.Column(db.Integer, default=0)
+    goals_against = db.Column(db.Integer, default=0)
 
     user = db.relationship('User', back_populates='worst_team')
     team = db.relationship('Team')

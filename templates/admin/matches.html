@@ -68,6 +68,19 @@
     </form>
   </div>
 
+  <!-- DEDUP -->
+  <div class="settings-card" style="border-color:var(--secondary)">
+    <div class="settings-title pixel-text" style="color:var(--secondary)">🔍 ELIMINAR PARTIDOS DUPLICADOS</div>
+    <p style="color:var(--muted);font-size:.85rem">
+      Detecta y elimina automáticamente partidos duplicados (mismo equipo local, visitante y día).
+      Se conserva el que tiene resultado introducido, o el de ID más bajo si ninguno tiene resultado.
+    </p>
+    <form method="POST" onsubmit="return confirm('¿Eliminar partidos duplicados? Esta acción no se puede deshacer.')">
+      <input type="hidden" name="action" value="dedup">
+      <button type="submit" class="btn-pixel btn-secondary">🧹 LIMPIAR DUPLICADOS</button>
+    </form>
+  </div>
+
   <!-- MATCH LIST -->
   <!-- Bonus del día -->
   <div class="settings-card" style="margin-bottom:16px">

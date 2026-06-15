@@ -34,6 +34,13 @@ def _ensure_schema():
         mcols = {c['name'] for c in _inspect(db.engine).get_columns('matches')}
         if 'total_corners' not in mcols:
             pending.append("ALTER TABLE matches ADD COLUMN total_corners INTEGER")
+        wcols = {c['name'] for c in _inspect(db.engine).get_columns('worst_team_assignments')}
+        if 'goals_for' not in wcols:
+            pending.append("ALTER TABLE worst_team_assignments ADD COLUMN goals_for INTEGER DEFAULT 0")
+        if 'goals_against' not in wcols:
+            pending.append("ALTER TABLE worst_team_assignments ADD COLUMN goals_against INTEGER DEFAULT 0")
+        if 'pending_notice' not in cols:
+            pending.append("ALTER TABLE users ADD COLUMN pending_notice TEXT")
         if pending:
             with db.engine.connect() as conn:
                 for sql in pending:
@@ -102,13 +109,15 @@ def admin_required(f):
 
 @app.context_processor
 def inject_pack_count():
-    ctx = {'pending_packs': 0, 'user_coins': 0, 'gift_alert': 0, 'PACK_TYPES': PACK_TYPES}
+    ctx = {'pending_packs': 0, 'user_coins': 0, 'gift_alert': 0,
+           'pending_notice': None, 'PACK_TYPES': PACK_TYPES}
     if current_user.is_authenticated:
         try:
             ctx['pending_packs'] = UserPack.query.filter_by(
                 user_id=current_user.id, opened=False).count()
             ctx['user_coins'] = current_user.coins
             ctx['gift_alert'] = current_user.gift_alert or 0
+            ctx['pending_notice'] = current_user.pending_notice or None
         except Exception:
             pass
     return ctx
@@ -279,6 +288,8 @@ def recalc_worst_teams():
             else:
                 gf += m.goals2
                 ga += m.goals1
+        assignment.goals_for = gf
+        assignment.goals_against = ga
         assignment.points_earned = gf + (ga // 3)
     db.session.commit()
 
@@ -1430,21 +1441,60 @@ def admin_matches():
         action = request.form.get('action')
         if action == 'add':
             try:
-                m = Match(
-                    phase=request.form['phase'],
-                    team1_id=int(request.form['team1_id']),
-                    team2_id=int(request.form['team2_id']),
-                    match_date=datetime.strptime(request.form['match_date'], '%Y-%m-%dT%H:%M'),
-                    stadium=request.form.get('stadium', ''),
-                    city=request.form.get('city', ''),
-                    double_points=('double_points' in request.form),
-                    match_number=int(request.form.get('match_number') or 0)
-                )
-                db.session.add(m)
-                db.session.commit()
-                flash('Partido añadido.', 'success')
+                t1_id = int(request.form['team1_id'])
+                t2_id = int(request.form['team2_id'])
+                mdate = datetime.strptime(request.form['match_date'], '%Y-%m-%dT%H:%M')
+                existing = Match.query.filter(
+                    Match.team1_id == t1_id,
+                    Match.team2_id == t2_id,
+                    db.func.date(Match.match_date) == mdate.date()
+                ).first()
+                if existing:
+                    flash('Ya existe un partido con esos equipos en esa fecha.', 'error')
+                else:
+                    m = Match(
+                        phase=request.form['phase'],
+                        team1_id=t1_id,
+                        team2_id=t2_id,
+                        match_date=mdate,
+                        stadium=request.form.get('stadium', ''),
+                        city=request.form.get('city', ''),
+                        double_points=('double_points' in request.form),
+                        match_number=int(request.form.get('match_number') or 0)
+                    )
+                    db.session.add(m)
+                    db.session.commit()
+                    flash('Partido añadido.', 'success')
             except Exception as e:
                 flash(f'Error: {e}', 'error')
+        elif action == 'dedup':
+            all_m = Match.query.order_by(Match.match_date, Match.id).all()
+            seen = {}
+            to_delete = []
+            for m in all_m:
+                key = (m.team1_id, m.team2_id, m.match_date.date())
+                if key in seen:
+                    keeper = seen[key]
+                    # Preferir el que tiene resultado; si no, el de ID más bajo
+                    if m.result_entered and not keeper.result_entered:
+                        to_delete.append(keeper.id)
+                        seen[key] = m
+                    else:
+                        to_delete.append(m.id)
+                else:
+                    seen[key] = m
+            count = 0
+            for mid in to_delete:
+                dup = Match.query.get(mid)
+                if dup:
+                    Prediction.query.filter_by(match_id=dup.id).delete()
+                    Bet.query.filter_by(match_id=dup.id).delete()
+                    from models import ParlayLeg
+                    ParlayLeg.query.filter_by(match_id=dup.id).delete()
+                    db.session.delete(dup)
+                    count += 1
+            db.session.commit()
+            flash(f'{count} partido(s) duplicado(s) eliminado(s).', 'success')
         elif action == 'delete':
             m = Match.query.get_or_404(int(request.form['match_id']))
             Prediction.query.filter_by(match_id=m.id).delete()
@@ -1580,7 +1630,37 @@ def admin_settings():
                 recalc_match(m)
             db.session.commit()
             recalc_worst_teams()
+            for u in User.query.all():
+                grant_milestone_packs(u)
+            db.session.commit()
             flash('Todos los puntos recalculados.', 'success')
+        elif action == 'settle_bets':
+            settled = 0
+            for m in Match.query.filter(Match.goals1.isnot(None)).all():
+                pending_bets = Bet.query.filter_by(match_id=m.id, result=None).count()
+                settle_match_bets(m)
+                settle_match_parlays(m)
+                settled += pending_bets
+            db.session.commit()
+            flash(f'Apuestas liquidadas: {settled} apuesta(s) procesada(s).', 'success')
+        elif action == 'recalc_and_notify':
+            notice_text = request.form.get('notice_text', '').strip()
+            # Recalcular porras
+            for m in Match.query.filter(Match.goals1.isnot(None)).all():
+                recalc_match(m)
+            db.session.commit()
+            # Peores selecciones
+            recalc_worst_teams()
+            # Sobres por hitos
+            for u in User.query.all():
+                grant_milestone_packs(u)
+            db.session.commit()
+            # Notificar a todos los usuarios
+            if notice_text:
+                for u in User.query.all():
+                    u.pending_notice = notice_text
+                db.session.commit()
+            flash(f'Recálculo completo. {User.query.count()} jugadores notificados.', 'success')
         return redirect(url_for('admin_settings'))
     return render_template('admin/settings.html', settings=settings, teams=teams)
 
@@ -1679,6 +1759,15 @@ def admin_give_coins():
 def ack_gift():
     """Marca el regalo del líder como visto para que la alerta no vuelva a salir."""
     current_user.gift_alert = 0
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/notice/ack', methods=['POST'])
+@login_required
+def ack_notice():
+    """Marca el aviso del admin como leído."""
+    current_user.pending_notice = None
     db.session.commit()
     return jsonify({'ok': True})
 
