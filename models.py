@@ -22,6 +22,7 @@ class User(UserMixin, db.Model):
     avatar_bg = db.Column(db.String(20), default='#ff0066')
     is_admin = db.Column(db.Boolean, default=False)
     onboarding_done = db.Column(db.Boolean, default=False)
+    tutorial_seen   = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     coins_spent    = db.Column(db.Integer, default=0)

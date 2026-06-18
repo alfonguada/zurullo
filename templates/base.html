@@ -22,7 +22,9 @@
   <!-- ── DESKTOP NAV ── -->
   <nav class="desktop-nav">
     <div class="desktop-nav-inner">
-      <a href="{{ url_for('dashboard') }}" class="nav-logo pixel-text">⚽ ZURULLO WC</a>
+      <a href="{{ url_for('dashboard') }}" class="nav-logo">
+        <img src="{{ url_for('static', filename='img/navbar-logo.png') }}" alt="Zurullo WC" style="height:36px;width:auto;object-fit:contain">
+      </a>
       <div class="desktop-nav-links">
         <!-- Grupo juego -->
         <a href="{{ url_for('dashboard') }}"   class="dnl {% if request.endpoint=='dashboard' %}active{% endif %}">INICIO</a>
@@ -53,7 +55,9 @@
 
   <!-- ── MOBILE APP BAR ── -->
   <header class="mobile-appbar">
-    <a href="{{ url_for('dashboard') }}" class="appbar-logo pixel-text">⚽ ZURULLO</a>
+    <a href="{{ url_for('dashboard') }}" class="appbar-logo">
+      <img src="{{ url_for('static', filename='img/navbar-logo.png') }}" alt="Zurullo WC" style="height:30px;width:auto;object-fit:contain">
+    </a>
     <div class="appbar-right">
       <a href="{{ url_for('profile') }}" class="appbar-avatar">
         <span class="av av-sm" style="background:{{ current_user.avatar_bg }}">{{ current_user.avatar_emoji }}</span>
@@ -235,5 +239,73 @@ document.getElementById('noticeAckBtn').addEventListener('click', function(){
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block scripts %}{% endblock %}
+
+{% if current_user.is_authenticated and not current_user.tutorial_seen %}
+<!-- ── TUTORIAL MODAL ── -->
+<div id="tutorialOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div id="tutorialModal" style="background:#0d0d24;border:2px solid var(--primary);border-radius:16px;max-width:420px;width:100%;padding:28px 24px;position:relative;box-shadow:0 0 40px rgba(0,255,136,.2)">
+    <div id="tut-step-indicator" style="display:flex;gap:6px;justify-content:center;margin-bottom:20px"></div>
+    <div id="tut-icon" style="font-size:2.4rem;text-align:center;margin-bottom:12px"></div>
+    <div id="tut-title" class="pixel-text" style="font-size:.55rem;text-align:center;margin-bottom:14px;color:var(--primary)"></div>
+    <div id="tut-body" style="font-size:.82rem;line-height:1.6;text-align:center;color:var(--text2)"></div>
+    <div style="display:flex;gap:10px;margin-top:24px;justify-content:center">
+      <button id="tut-prev" onclick="tutNav(-1)" class="btn-pixel btn-sm" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)">← ATRÁS</button>
+      <button id="tut-next" onclick="tutNav(1)"  class="btn-pixel btn-sm" style="background:var(--primary);color:#000">SIGUIENTE →</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var STEPS = [
+    { icon:'⚽', title:'BIENVENIDO A ZURULLO WC',
+      body:'¡El juego de porras del <strong>Mundial 2026</strong>! Predice los resultados, gana puntos y sube en el ranking de tu grupo.' },
+    { icon:'🎯', title:'CÓMO FUNCIONA',
+      body:'Antes de cada partido entra en <strong>PORRAS</strong>, elige el marcador que crees que va a ser y pulsa <strong>GUARDAR</strong>. Tienes hasta que empiece el partido.' },
+    { icon:'🏆', title:'PUNTUACIÓN',
+      body:'✅ Aciertas 1/X/2 → <strong>1 punto</strong><br>🎯 Marcador exacto → <strong>3 puntos</strong><br>🔥 Exacto en partido doble → <strong>6 puntos</strong>' },
+    { icon:'📦', title:'ÁLBUM DE CROMOS',
+      body:'Consigue sobres con cromos del Mundial. Hay cartas comunes, raras, épicas y cartas <strong>ULTRA</strong> de las estrellas del torneo.' },
+    { icon:'🎲', title:'CASA DE APUESTAS',
+      body:'Apuesta tus monedas en los mercados de cada partido. Gana más monedas para abrir sobres y desbloquear ventajas.' },
+  ];
+  var cur = 0;
+
+  function render() {
+    var s = STEPS[cur];
+    document.getElementById('tut-icon').textContent = s.icon;
+    document.getElementById('tut-title').textContent = s.title;
+    document.getElementById('tut-body').innerHTML = s.body;
+    document.getElementById('tut-prev').style.display = cur === 0 ? 'none' : '';
+    var nextBtn = document.getElementById('tut-next');
+    nextBtn.textContent = cur === STEPS.length - 1 ? '¡ EMPEZAR ! →' : 'SIGUIENTE →';
+    var dots = document.getElementById('tut-step-indicator');
+    dots.innerHTML = '';
+    STEPS.forEach(function(_, i) {
+      var d = document.createElement('span');
+      d.style.cssText = 'width:8px;height:8px;border-radius:50%;background:' + (i === cur ? 'var(--primary)' : 'var(--border)');
+      dots.appendChild(d);
+    });
+  }
+
+  window.tutNav = function(dir) {
+    cur += dir;
+    if (cur < 0) cur = 0;
+    if (cur >= STEPS.length) {
+      closeTutorial();
+      return;
+    }
+    render();
+  };
+
+  window.closeTutorial = function() {
+    var ov = document.getElementById('tutorialOverlay');
+    if (ov) ov.remove();
+    fetch('/tutorial/seen', { method: 'POST' });
+  };
+
+  render();
+})();
+</script>
+{% endif %}
 </body>
 </html>

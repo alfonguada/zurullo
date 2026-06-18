@@ -129,5 +129,24 @@
       </form>
     </div>
   </div>
+
+  <!-- MANTENIMIENTO -->
+  <div class="settings-card" style="margin-top:20px">
+    <div class="pixel-text" style="font-size:.45rem;color:var(--muted);margin-bottom:14px">🔧 MANTENIMIENTO</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <form action="{{ url_for('admin_fix_teams') }}" method="POST"
+            onsubmit="return confirm('¿Arreglar banderas y fusionar equipos duplicados?')">
+        <button type="submit" class="btn-pixel btn-sm" style="background:var(--blue);color:#000">🏳️ ARREGLAR EQUIPOS + BANDERAS</button>
+      </form>
+      <form action="{{ url_for('admin_recalc_all') }}" method="POST"
+            onsubmit="return confirm('¿Recalcular TODOS los puntos? Puede tardar unos segundos.')">
+        <button type="submit" class="btn-pixel btn-sm" style="background:var(--secondary);color:#fff">🔄 RECALCULAR TODOS LOS PUNTOS</button>
+      </form>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin-top:10px">
+      <strong>Equipos+Banderas:</strong> elimina duplicados inglés/español y asigna la bandera correcta a cada país.<br>
+      <strong>Recalcular puntos:</strong> vuelve a calcular exactos, bonificaciones y peor equipo para todos los partidos ya jugados.
+    </p>
+  </div>
 </div>
 {% endblock %}

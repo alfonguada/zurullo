@@ -32,6 +32,19 @@
 /* ── RESET ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('/static/img/world-map.svg') no-repeat;
+  background-size: cover;
+  background-position: 22% center;
+  opacity: .12;
+  pointer-events: none;
+  z-index: 0;
+  height: 100vh;
+  height: 100dvh;
+}
 body {
   background: var(--bg);
   color: var(--text);

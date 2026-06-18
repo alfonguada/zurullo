@@ -54,6 +54,10 @@ def find_image_url(name):
     Busca la URL de foto con reintentos y pausa anti-rate-limit.
     Prueba nombre original y sin tildes.
     """
+    # Cartas ultra: "Messi ✦ BALÓN DE ORO" → buscar solo "Messi"
+    if '✦' in name:
+        name = name.split('✦')[0].strip()
+
     candidates = [name, strip_accents(name)]
     # También probar solo apellido para jugadores difíciles
     parts = name.split()

@@ -31,6 +31,8 @@ def _ensure_schema():
             pending.append("ALTER TABLE users ADD COLUMN gift_coins INTEGER DEFAULT 0")
         if 'gift_alert' not in cols:
             pending.append("ALTER TABLE users ADD COLUMN gift_alert INTEGER DEFAULT 0")
+        if 'tutorial_seen' not in cols:
+            pending.append("ALTER TABLE users ADD COLUMN tutorial_seen BOOLEAN DEFAULT 0")
         mcols = {c['name'] for c in _inspect(db.engine).get_columns('matches')}
         if 'total_corners' not in mcols:
             pending.append("ALTER TABLE matches ADD COLUMN total_corners INTEGER")
@@ -704,11 +706,21 @@ def dashboard():
 def predictions():
     if not current_user.onboarding_done:
         return redirect(url_for('onboarding'))
+    now = datetime.utcnow()
     phase = request.args.get('phase', 'all')
-    q = Match.query.order_by(Match.match_date, Match.match_number)
+    tab   = request.args.get('tab', 'upcoming')
+
+    q = Match.query
     if phase != 'all':
         q = q.filter(Match.phase == phase)
-    matches = q.all()
+
+    if tab == 'past':
+        matches = q.filter(Match.match_date < now).order_by(
+            Match.match_date.desc(), Match.match_number.desc()).all()
+    else:
+        matches = q.filter(Match.match_date >= now).order_by(
+            Match.match_date, Match.match_number).all()
+
     match_ids = [m.id for m in matches]
     preds = {p.match_id: p for p in Prediction.query.filter(
         Prediction.user_id == current_user.id,
@@ -717,16 +729,21 @@ def predictions():
     by_date = defaultdict(list)
     for m in matches:
         by_date[m.match_date.strftime('%Y-%m-%d')].append(m)
+
+    upcoming_count = Match.query.filter(Match.match_date >= now).count()
+    past_count     = Match.query.filter(Match.match_date < now).count()
+
     return render_template('predictions.html',
                            matches=matches, by_date=dict(by_date),
-                           preds=preds, phase=phase)
+                           preds=preds, phase=phase, tab=tab,
+                           upcoming_count=upcoming_count, past_count=past_count)
 
 
 @app.route('/predict/<int:match_id>', methods=['POST'])
 @login_required
 def predict(match_id):
     match = Match.query.get_or_404(match_id)
-    if match.is_locked:
+    if match.is_locked or datetime.utcnow() >= match.match_date:
         return jsonify({'error': 'Partido bloqueado.'}), 400
     try:
         g1 = int(request.form['goals1'])
@@ -1117,6 +1134,14 @@ def leaderboard():
         })
     settings = TournamentSettings.query.first()
     return render_template('leaderboard.html', rows=rows, settings=settings)
+
+
+@app.route('/tutorial/seen', methods=['POST'])
+@login_required
+def tutorial_seen():
+    current_user.tutorial_seen = True
+    db.session.commit()
+    return ('', 204)
 
 
 @app.route('/profile', methods=['GET', 'POST'])
@@ -1884,6 +1909,119 @@ def admin_give_coins():
         u.gift_alert = (u.gift_alert or 0) + amount
     db.session.commit()
     flash(f'🪙 {amount} monedas regaladas a {len(users)} jugadores.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/recalc-all', methods=['POST'])
+@login_required
+@admin_required
+def admin_recalc_all():
+    done = Match.query.filter_by(result_entered=True).all()
+    for m in done:
+        recalc_match(m)
+    db.session.commit()
+    recalc_worst_teams()
+    flash(f'✅ Puntos recalculados en {len(done)} partidos.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/fix-teams', methods=['POST'])
+@login_required
+@admin_required
+def admin_fix_teams():
+    FLAG_MAP = {
+        'España':'es','Francia':'fr','Alemania':'de','Inglaterra':'gb-eng',
+        'Países Bajos':'nl','Portugal':'pt','Italia':'it','Bélgica':'be',
+        'Croacia':'hr','Suiza':'ch','Serbia':'rs','Austria':'at',
+        'Escocia':'gb-sct','Turquía':'tr','Hungría':'hu','Dinamarca':'dk',
+        'Albania':'al','Eslovenia':'si','Rumanía':'ro','Grecia':'gr',
+        'Brasil':'br','Argentina':'ar','Colombia':'co','Uruguay':'uy',
+        'Ecuador':'ec','Paraguay':'py','Venezuela':'ve','Bolivia':'bo',
+        'México':'mx','Estados Unidos':'us','Canadá':'ca','Panamá':'pa',
+        'Costa Rica':'cr','Honduras':'hn','Jamaica':'jm','El Salvador':'sv',
+        'Marruecos':'ma','Nigeria':'ng','Senegal':'sn','Camerún':'cm',
+        'Egipto':'eg','Ghana':'gh','Costa de Marfil':'ci','Sudáfrica':'za',
+        'R.D. Congo':'cd','Argelia':'dz','Japón':'jp','Corea del Sur':'kr',
+        'Arabia Saudí':'sa','Arabia Saudita':'sa','Irán':'ir','Australia':'au',
+        'Iraq':'iq','Uzbekistán':'uz','Jordania':'jo','Nueva Zelanda':'nz',
+        'Gales':'gb-wls','Ucrania':'ua','Polonia':'pl','Chequia':'cz',
+        'Eslovaquia':'sk','Georgia':'ge','Mali':'ml','Túnez':'tn',
+        'Togo':'tg','Mozambique':'mz','Chile':'cl','Noruega':'no',
+        'Suecia':'se','Catar':'qa','Haití':'ht','Bosnia y Herzegovina':'ba',
+        'Germany':'de','Spain':'es','France':'fr','England':'gb-eng',
+        'Netherlands':'nl','Italy':'it','Belgium':'be','Croatia':'hr',
+        'Switzerland':'ch','Scotland':'gb-sct','Turkey':'tr','Türkiye':'tr',
+        'Hungary':'hu','Denmark':'dk','Slovenia':'si','Romania':'ro',
+        'Greece':'gr','Brazil':'br','Colombia':'co','Uruguay':'uy',
+        'Ecuador':'ec','Paraguay':'py','Venezuela':'ve','Bolivia':'bo',
+        'Mexico':'mx','United States':'us','USA':'us','Canada':'ca',
+        'Panama':'pa','Jamaica':'jm','Morocco':'ma','Nigeria':'ng',
+        'Senegal':'sn','Cameroon':'cm','Egypt':'eg','Ghana':'gh',
+        "Ivory Coast":'ci',"Côte d'Ivoire":'ci','South Africa':'za',
+        'DR Congo':'cd','Algeria':'dz','Japan':'jp','South Korea':'kr',
+        'Korea Republic':'kr','Saudi Arabia':'sa','Iran':'ir','Iraq':'iq',
+        'Uzbekistan':'uz','Jordan':'jo','New Zealand':'nz','Wales':'gb-wls',
+        'Ukraine':'ua','Poland':'pl','Czech Republic':'cz','Czechia':'cz',
+        'Slovakia':'sk','Georgia':'ge','Mali':'ml','Tunisia':'tn',
+        'Chile':'cl','Norway':'no','El Salvador':'sv','Honduras':'hn',
+        'Costa Rica':'cr','Albania':'al','Portugal':'pt','Austria':'at',
+        'Togo':'tg','Mozambique':'mz',
+    }
+    EN_TO_ES = {
+        'Germany':'Alemania','Spain':'España','France':'Francia',
+        'England':'Inglaterra','Netherlands':'Países Bajos','Italy':'Italia',
+        'Belgium':'Bélgica','Croatia':'Croacia','Switzerland':'Suiza',
+        'Scotland':'Escocia','Turkey':'Turquía','Türkiye':'Turquía',
+        'Hungary':'Hungría','Denmark':'Dinamarca','Slovenia':'Eslovenia',
+        'Romania':'Rumanía','Greece':'Grecia','Brazil':'Brasil',
+        'Colombia':'Colombia','Uruguay':'Uruguay','Ecuador':'Ecuador',
+        'Paraguay':'Paraguay','Venezuela':'Venezuela','Bolivia':'Bolivia',
+        'Mexico':'México','United States':'Estados Unidos','USA':'Estados Unidos',
+        'Canada':'Canadá','Panama':'Panamá','Morocco':'Marruecos',
+        'Nigeria':'Nigeria','Senegal':'Senegal','Cameroon':'Camerún',
+        'Egypt':'Egipto','Ghana':'Ghana',"Ivory Coast":'Costa de Marfil',
+        "Côte d'Ivoire":'Costa de Marfil','South Africa':'Sudáfrica',
+        'DR Congo':'R.D. Congo','Algeria':'Argelia','Japan':'Japón',
+        'South Korea':'Corea del Sur','Korea Republic':'Corea del Sur',
+        'Saudi Arabia':'Arabia Saudí','Iran':'Irán','Iraq':'Iraq',
+        'Uzbekistan':'Uzbekistán','Jordan':'Jordania',
+        'New Zealand':'Nueva Zelanda','Wales':'Gales','Ukraine':'Ucrania',
+        'Poland':'Polonia','Czech Republic':'Chequia','Czechia':'Chequia',
+        'Slovakia':'Eslovaquia','Georgia':'Georgia','Mali':'Mali',
+        'Tunisia':'Túnez','Chile':'Chile','Norway':'Noruega',
+        'El Salvador':'El Salvador','Honduras':'Honduras',
+        'Costa Rica':'Costa Rica','Albania':'Albania',
+    }
+    flags_fixed = dupes_merged = 0
+    for team in Team.query.all():
+        code = FLAG_MAP.get(team.name)
+        if code and team.flag_img != f'{code}.png':
+            team.flag_img = f'{code}.png'
+            flags_fixed += 1
+    db.session.commit()
+    for en_name, es_name in EN_TO_ES.items():
+        en_t = Team.query.filter_by(name=en_name).first()
+        es_t = Team.query.filter_by(name=es_name).first()
+        if not en_t or not es_t or en_t.id == es_t.id:
+            continue
+        Match.query.filter_by(team1_id=en_t.id).update({'team1_id': es_t.id})
+        Match.query.filter_by(team2_id=en_t.id).update({'team2_id': es_t.id})
+        db.session.flush()
+        seen = set()
+        for m in Match.query.filter(
+            (Match.team1_id == es_t.id) | (Match.team2_id == es_t.id)
+        ).order_by(Match.id).all():
+            key = (min(m.team1_id, m.team2_id), max(m.team1_id, m.team2_id),
+                   m.match_date.date())
+            if key in seen:
+                db.session.delete(m)
+            else:
+                seen.add(key)
+        db.session.delete(en_t)
+        db.session.flush()
+        dupes_merged += 1
+    db.session.commit()
+    flash(f'✅ {flags_fixed} banderas · {dupes_merged} duplicados fusionados.', 'success')
     return redirect(url_for('admin_dashboard'))
 
 

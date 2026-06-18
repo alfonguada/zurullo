@@ -7,10 +7,24 @@
     <div class="pixel-text glow-green" style="font-size:1rem">⚽ MIS PORRAS</div>
   </div>
 
+  <!-- TABS PRÓXIMOS / PASADOS -->
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <a href="{{ url_for('predictions', phase=phase, tab='upcoming') }}"
+       style="flex:1;text-align:center;padding:10px 0;border-radius:8px;font-family:'Press Start 2P',monospace;font-size:.45rem;text-decoration:none;
+              {% if tab=='upcoming' %}background:var(--primary);color:#000{% else %}background:var(--surface);color:var(--muted);border:1px solid var(--border){% endif %}">
+      ⏳ PRÓXIMOS <span style="font-size:.6em;opacity:.8">({{ upcoming_count }})</span>
+    </a>
+    <a href="{{ url_for('predictions', phase=phase, tab='past') }}"
+       style="flex:1;text-align:center;padding:10px 0;border-radius:8px;font-family:'Press Start 2P',monospace;font-size:.45rem;text-decoration:none;
+              {% if tab=='past' %}background:var(--accent);color:#000{% else %}background:var(--surface);color:var(--muted);border:1px solid var(--border){% endif %}">
+      ✅ PASADOS <span style="font-size:.6em;opacity:.8">({{ past_count }})</span>
+    </a>
+  </div>
+
   <!-- PHASE FILTER -->
   <div class="phase-tabs">
     {% for code, label in [('all','Todo'),('group','Grupos'),('r16','Octavos'),('qf','Cuartos'),('sf','Semis'),('final','FINAL')] %}
-    <a href="{{ url_for('predictions', phase=code) }}" class="phase-tab {% if phase == code %}active{% endif %}">{{ label }}</a>
+    <a href="{{ url_for('predictions', phase=code, tab=tab) }}" class="phase-tab {% if phase == code %}active{% endif %}">{{ label }}</a>
     {% endfor %}
   </div>
 
